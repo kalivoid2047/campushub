@@ -1,7 +1,10 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from sqlalchemy import text
 
 from app.core.config import get_settings
+from app.core.db import engine
 from app.modules.iam.router import admin_router as iam_admin_router
 from app.modules.iam.router import router as iam_router
 from app.modules.resources.router import router as resources_router
@@ -61,6 +64,29 @@ async def healthz() -> dict[str, str]:
 
 
 @app.get("/readyz", tags=["ops"])
-async def readyz() -> dict[str, str]:
-    # TODO: check DB/Redis connectivity before reporting ready
-    return {"status": "ready"}
+async def readyz() -> JSONResponse:
+    """Reports ready only once the database and Redis are both reachable —
+    the two stateful dependencies every request path relies on (docs/13
+    section 1)."""
+    try:
+        async with engine.connect() as conn:
+            await conn.execute(text("SELECT 1"))
+    except Exception:
+        return JSONResponse(
+            status_code=503, content={"status": "not_ready", "detail": "database unavailable"}
+        )
+
+    try:
+        import redis.asyncio as redis_asyncio
+
+        client = redis_asyncio.from_url(settings.redis_url)
+        try:
+            await client.ping()
+        finally:
+            await client.aclose()
+    except Exception:
+        return JSONResponse(
+            status_code=503, content={"status": "not_ready", "detail": "redis unavailable"}
+        )
+
+    return JSONResponse(status_code=200, content={"status": "ready"})

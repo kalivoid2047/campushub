@@ -13,6 +13,8 @@ class CallScreen extends StatefulWidget {
     required this.sfuToken,
     required this.sessionTitle,
     required this.onLeave,
+    required this.onStartRecording,
+    required this.onStopRecording,
   });
 
   final String signalingUrl;
@@ -22,6 +24,13 @@ class CallScreen extends StatefulWidget {
   /// Called once, before popping, to record the leave server-side
   /// (closes the attendance window — FR-VC-5/FR-ATT-1).
   final Future<void> Function() onLeave;
+
+  /// Server-side recording control (Epic E5, manual lecturer-triggered).
+  /// Rejected with a 403 by the backend for non-lecturers — this widget
+  /// doesn't gate the button locally, matching how Start/End session
+  /// controls already trust the backend's RBAC rather than duplicating it.
+  final Future<void> Function() onStartRecording;
+  final Future<void> Function() onStopRecording;
 
   @override
   State<CallScreen> createState() => _CallScreenState();
@@ -34,6 +43,10 @@ class _CallScreenState extends State<CallScreen> {
   bool _leaving = false;
   bool _micEnabled = true;
   bool _cameraEnabled = true;
+  bool _screenShareEnabled = false;
+  bool _togglingScreenShare = false;
+  bool _recording = false;
+  bool _togglingRecording = false;
   String? _error;
 
   @override
@@ -97,6 +110,57 @@ class _CallScreenState extends State<CallScreen> {
     if (mounted) setState(() => _cameraEnabled = next);
   }
 
+  /// Publishes/unpublishes a screenShareVideo track (docs/10-virtual-classroom.md
+  /// Epic E5 screen sharing). The join token's VideoGrants already permit
+  /// publishing any track source, so no backend change is needed — this is
+  /// purely a client-side capability. Wrapped in try/catch (unlike mic/camera)
+  /// because the browser/OS source picker is commonly cancelled by the user,
+  /// which is routine here, not exceptional.
+  Future<void> _toggleScreenShare() async {
+    if (_togglingScreenShare) return;
+    final next = !_screenShareEnabled;
+    setState(() => _togglingScreenShare = true);
+    try {
+      await _room.localParticipant?.setScreenShareEnabled(next);
+      if (mounted) setState(() => _screenShareEnabled = next);
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Screen share unavailable: $error')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _togglingScreenShare = false);
+    }
+  }
+
+  /// Starts/stops server-side recording. Unlike mic/camera/screen-share this
+  /// is not a local media action — it round-trips to the backend, which
+  /// mints a LiveKit Egress job (Epic E5). A failure (not a lecturer, or
+  /// recording not configured on this server) is routine enough to surface
+  /// as a SnackBar rather than tearing down the call.
+  Future<void> _toggleRecording() async {
+    if (_togglingRecording) return;
+    final next = !_recording;
+    setState(() => _togglingRecording = true);
+    try {
+      if (next) {
+        await widget.onStartRecording();
+      } else {
+        await widget.onStopRecording();
+      }
+      if (mounted) setState(() => _recording = next);
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Recording: $error')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _togglingRecording = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return PopScope(
@@ -110,6 +174,20 @@ class _CallScreenState extends State<CallScreen> {
           title: Text(widget.sessionTitle),
           backgroundColor: Colors.black87,
           foregroundColor: Colors.white,
+          actions: [
+            if (_recording)
+              const Padding(
+                padding: EdgeInsets.only(right: 16),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.fiber_manual_record, color: Colors.red, size: 14),
+                    SizedBox(width: 4),
+                    Text('REC', style: TextStyle(color: Colors.red)),
+                  ],
+                ),
+              ),
+          ],
         ),
         body: _connecting
             ? const Center(child: CircularProgressIndicator())
@@ -146,6 +224,46 @@ class _CallScreenState extends State<CallScreen> {
                         color: Colors.white,
                       ),
                       onPressed: _toggleCamera,
+                    ),
+                    const SizedBox(width: 16),
+                    IconButton(
+                      tooltip: _screenShareEnabled
+                          ? 'Stop screen share'
+                          : 'Share screen',
+                      icon: _togglingScreenShare
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                  strokeWidth: 2, color: Colors.white),
+                            )
+                          : Icon(
+                              _screenShareEnabled
+                                  ? Icons.stop_screen_share
+                                  : Icons.screen_share_outlined,
+                              color: _screenShareEnabled
+                                  ? Theme.of(context).colorScheme.primary
+                                  : Colors.white,
+                            ),
+                      onPressed: _togglingScreenShare ? null : _toggleScreenShare,
+                    ),
+                    const SizedBox(width: 16),
+                    IconButton(
+                      tooltip: _recording ? 'Stop recording' : 'Start recording',
+                      icon: _togglingRecording
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                  strokeWidth: 2, color: Colors.white),
+                            )
+                          : Icon(
+                              _recording
+                                  ? Icons.stop_circle_outlined
+                                  : Icons.fiber_manual_record,
+                              color: _recording ? Colors.red : Colors.white,
+                            ),
+                      onPressed: _togglingRecording ? null : _toggleRecording,
                     ),
                     const SizedBox(width: 16),
                     IconButton(
@@ -189,7 +307,17 @@ class _ParticipantTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final publications = participant?.videoTrackPublications ?? const [];
-    final track = publications.isNotEmpty ? publications.first.track : null;
+    // A participant may publish both a camera and a screen-share track at
+    // once; the screen share is the one worth showing.
+    lk.TrackPublication? preferred;
+    for (final publication in publications) {
+      if (publication.source == lk.TrackSource.screenShareVideo) {
+        preferred = publication;
+        break;
+      }
+      preferred ??= publication;
+    }
+    final track = preferred?.track;
 
     return Container(
       margin: const EdgeInsets.all(4),

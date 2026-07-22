@@ -20,7 +20,12 @@ from app.modules.admin.repository import AdminRepository
 from app.modules.attendance.models import AttendanceRecord, AttendanceSource
 from app.modules.sync.models import SyncOperation
 from app.modules.sync.repository import SyncRepository
-from app.modules.virtual_classroom.models import ClassSession, SessionStatus
+from app.modules.virtual_classroom.models import (
+    ClassSession,
+    RecordingStatus,
+    SessionRecording,
+    SessionStatus,
+)
 from app.modules.virtual_classroom.repository import VirtualClassroomRepository
 from app.modules.virtual_classroom.schemas import CreateSessionRequest
 
@@ -177,6 +182,128 @@ class VirtualClassroomService:
             record.duration_seconds += int((now - joined_at).total_seconds())
             await self._session.commit()
         return record
+
+    # --- Recording (Epic E5, manual lecturer-triggered start/stop) ---
+
+    async def start_recording(self, user: CurrentUser, session_id: uuid.UUID) -> SessionRecording:
+        class_session = await self._get_checked(user, session_id, require_lecturer=True)
+        if class_session.status != SessionStatus.LIVE:
+            raise HTTPException(status_code=422, detail="Session is not live")
+        if await self._repo.get_active_recording(class_session.id) is not None:
+            raise HTTPException(status_code=409, detail="A recording is already in progress")
+
+        settings = get_settings()
+        if not (settings.livekit_url and settings.livekit_api_key and settings.livekit_api_secret):
+            raise HTTPException(
+                status_code=422, detail="Recording is not configured for this server"
+            )
+        if not (settings.s3_endpoint_url and settings.s3_bucket):
+            raise HTTPException(
+                status_code=422, detail="Recording storage is not configured for this server"
+            )
+
+        storage_key = f"recordings/{user.tenant_id}/{class_session.id}/{uuid.uuid4()}.mp4"
+        client = livekit_api.LiveKitAPI(
+            settings.livekit_url, settings.livekit_api_key, settings.livekit_api_secret
+        )
+        try:
+            info = await client.egress.start_room_composite_egress(
+                livekit_api.RoomCompositeEgressRequest(
+                    room_name=str(class_session.id),
+                    layout="grid",
+                    file_outputs=[
+                        livekit_api.EncodedFileOutput(
+                            file_type=livekit_api.EncodedFileType.MP4,
+                            filepath=storage_key,
+                            s3=livekit_api.S3Upload(
+                                access_key=settings.s3_access_key or "",
+                                secret=settings.s3_secret_key or "",
+                                bucket=settings.s3_bucket,
+                                endpoint=settings.s3_endpoint_url,
+                                force_path_style=True,
+                            ),
+                        )
+                    ],
+                )
+            )
+        except Exception as error:  # LiveKit server unreachable/rejected the request
+            raise HTTPException(
+                status_code=502, detail=f"Failed to start recording: {error}"
+            ) from None
+        finally:
+            await client.aclose()
+
+        recording = await self._repo.create_recording(class_session.id, storage_key, info.egress_id)
+        await self._session.commit()
+        return recording
+
+    async def stop_recording(self, user: CurrentUser, session_id: uuid.UUID) -> SessionRecording:
+        class_session = await self._get_checked(user, session_id, require_lecturer=True)
+        recording = await self._repo.get_active_recording(class_session.id)
+        if recording is None:
+            raise HTTPException(status_code=422, detail="No recording is in progress")
+
+        settings = get_settings()
+        client = livekit_api.LiveKitAPI(
+            settings.livekit_url, settings.livekit_api_key, settings.livekit_api_secret
+        )
+        try:
+            info = await client.egress.stop_egress(
+                livekit_api.StopEgressRequest(egress_id=recording.egress_id)
+            )
+        except Exception as error:
+            raise HTTPException(status_code=502, detail=f"Failed to stop recording: {error}") from None
+        finally:
+            await client.aclose()
+
+        self._apply_egress_info(recording, info)
+        await self._session.commit()
+        return recording
+
+    async def list_recordings(
+        self, user: CurrentUser, session_id: uuid.UUID
+    ) -> list[SessionRecording]:
+        class_session = await self._get_checked(user, session_id)
+        recordings = await self._repo.list_recordings(class_session.id)
+
+        # Best-effort reconciliation: LiveKit's egress completion lands
+        # asynchronously and there's no webhook receiver here, so any
+        # still-PROCESSING recording is polled against the Egress API on
+        # read. A failure here just leaves the row PROCESSING for next time.
+        pending = [r for r in recordings if r.status == RecordingStatus.PROCESSING]
+        settings = get_settings()
+        if pending and settings.livekit_url and settings.livekit_api_key and settings.livekit_api_secret:
+            client = livekit_api.LiveKitAPI(
+                settings.livekit_url, settings.livekit_api_key, settings.livekit_api_secret
+            )
+            try:
+                for recording in pending:
+                    response = await client.egress.list_egress(
+                        livekit_api.ListEgressRequest(egress_id=recording.egress_id)
+                    )
+                    if response.items:
+                        self._apply_egress_info(recording, response.items[0])
+                await self._session.commit()
+            except Exception:
+                pass
+            finally:
+                await client.aclose()
+        return recordings
+
+    def _apply_egress_info(self, recording: SessionRecording, info) -> None:
+        if info.status == livekit_api.EgressStatus.EGRESS_COMPLETE:
+            recording.status = RecordingStatus.AVAILABLE
+            if info.file_results:
+                file_info = info.file_results[0]
+                recording.size_bytes = file_info.size
+                # LiveKit reports duration in nanoseconds.
+                recording.duration_seconds = int(file_info.duration / 1_000_000_000)
+        elif info.status in (
+            livekit_api.EgressStatus.EGRESS_FAILED,
+            livekit_api.EgressStatus.EGRESS_ABORTED,
+        ):
+            recording.status = RecordingStatus.FAILED
+        # else: still STARTING/ACTIVE/ENDING — leave as PROCESSING.
 
     # --- Helpers ---
 

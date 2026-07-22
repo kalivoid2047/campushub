@@ -192,6 +192,139 @@ async def test_join_without_livekit_configured_returns_null_media(client, world)
     assert body["sfu_token"] is None
 
 
+def _configured_settings(**overrides):
+    from app.core.config import Settings
+
+    return Settings(
+        livekit_url="wss://livekit.example.edu",
+        livekit_api_key="test-key",
+        livekit_api_secret="test-secret-at-least-32-bytes-long",
+        s3_endpoint_url="http://minio.example.edu:9000",
+        s3_bucket="recordings",
+        **overrides,
+    )
+
+
+class _FakeEgress:
+    """Stands in for LiveKit's Egress service (no real SFU in tests)."""
+
+    def __init__(self):
+        self.stopped_ids: list[str] = []
+
+    async def start_room_composite_egress(self, request):
+        import livekit.api as lk
+
+        return lk.EgressInfo(egress_id="EG_fake123", status=lk.EgressStatus.EGRESS_ACTIVE)
+
+    async def stop_egress(self, request):
+        import livekit.api as lk
+
+        self.stopped_ids.append(request.egress_id)
+        return lk.EgressInfo(
+            egress_id=request.egress_id,
+            status=lk.EgressStatus.EGRESS_COMPLETE,
+            file_results=[lk.FileInfo(size=12345, duration=90_000_000_000)],  # 90s, in ns
+        )
+
+    async def list_egress(self, request):
+        import livekit.api as lk
+
+        return lk.ListEgressResponse(
+            items=[
+                lk.EgressInfo(
+                    egress_id=request.egress_id,
+                    status=lk.EgressStatus.EGRESS_COMPLETE,
+                    file_results=[lk.FileInfo(size=999, duration=5_000_000_000)],  # 5s
+                )
+            ]
+        )
+
+
+class _FakeLiveKitAPI:
+    def __init__(self, *args, **kwargs):
+        self.egress = _FakeEgress()
+
+    async def aclose(self):
+        pass
+
+
+def _patch_livekit(monkeypatch, settings):
+    from app.modules.virtual_classroom import service as vc_service
+
+    monkeypatch.setattr(vc_service, "get_settings", lambda: settings)
+    monkeypatch.setattr(vc_service.livekit_api, "LiveKitAPI", _FakeLiveKitAPI)
+
+
+async def test_recording_requires_livekit_and_storage_configured(client, world):
+    session_id = await _live_session(client, world)
+    resp = await client.post(
+        f"/api/v1/sessions/{session_id}/recording/start", headers=world["lecturer"]
+    )
+    assert resp.status_code == 422
+
+
+async def test_recording_requires_lecturer(client, world, monkeypatch):
+    _patch_livekit(monkeypatch, _configured_settings())
+    session_id = await _live_session(client, world)
+    resp = await client.post(
+        f"/api/v1/sessions/{session_id}/recording/start", headers=world["student"]
+    )
+    assert resp.status_code == 403
+
+
+async def test_recording_start_stop_lifecycle(client, world, monkeypatch):
+    _patch_livekit(monkeypatch, _configured_settings())
+    session_id = await _live_session(client, world)
+
+    started = await client.post(
+        f"/api/v1/sessions/{session_id}/recording/start", headers=world["lecturer"]
+    )
+    assert started.status_code == 201
+    assert started.json()["status"] == "processing"
+
+    # A second start while one is already active is rejected.
+    conflict = await client.post(
+        f"/api/v1/sessions/{session_id}/recording/start", headers=world["lecturer"]
+    )
+    assert conflict.status_code == 409
+
+    stopped = await client.post(
+        f"/api/v1/sessions/{session_id}/recording/stop", headers=world["lecturer"]
+    )
+    assert stopped.status_code == 200
+    body = stopped.json()
+    assert body["status"] == "available"
+    assert body["duration_seconds"] == 90
+    assert body["size_bytes"] == 12345
+
+    # Nothing left in progress to stop.
+    assert (
+        await client.post(
+            f"/api/v1/sessions/{session_id}/recording/stop", headers=world["lecturer"]
+        )
+    ).status_code == 422
+
+
+async def test_list_recordings_reconciles_processing_status(client, world, monkeypatch):
+    _patch_livekit(monkeypatch, _configured_settings())
+    session_id = await _live_session(client, world)
+    await client.post(
+        f"/api/v1/sessions/{session_id}/recording/start", headers=world["lecturer"]
+    )
+
+    # Listing (not stopping) also reconciles against the Egress API, so a
+    # recording that finished on LiveKit's side shows up as available even
+    # if nobody called /recording/stop.
+    listed = await client.get(
+        f"/api/v1/sessions/{session_id}/recordings", headers=world["student"]
+    )
+    assert listed.status_code == 200
+    [recording] = listed.json()
+    assert recording["status"] == "available"
+    assert recording["duration_seconds"] == 5
+    assert recording["size_bytes"] == 999
+
+
 async def test_join_with_livekit_configured_mints_a_scoped_token(client, world, monkeypatch):
     from app.core.config import Settings
     from app.modules.virtual_classroom import service as vc_service

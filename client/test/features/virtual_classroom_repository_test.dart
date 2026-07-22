@@ -117,6 +117,69 @@ void main() {
     expect(joinInfo.sfuToken, 'signed-jwt');
   });
 
+  test('startRecording/stopRecording hit the right endpoints', () async {
+    final calledPaths = <String>[];
+    final api = ApiClient(
+      'http://api.test',
+      httpClient: MockClient((request) async {
+        calledPaths.add(request.url.path);
+        return http.Response(
+          jsonEncode({
+            'id': 'r-1',
+            'status': request.url.path.endsWith('/stop') ? 'available' : 'processing',
+            'duration_seconds': 90,
+            'size_bytes': 12345,
+            'created_at': '2026-07-16T00:00:00Z',
+            'download_url':
+                request.url.path.endsWith('/stop') ? 'https://s3.example/r-1.mp4' : null,
+          }),
+          200,
+        );
+      }),
+    );
+    final repository = VirtualClassroomRepositoryImpl(api);
+
+    final started = await repository.startRecording('s-1');
+    expect(started.status, 'processing');
+    expect(started.downloadUrl, isNull);
+
+    final stopped = await repository.stopRecording('s-1');
+    expect(stopped.status, 'available');
+    expect(stopped.downloadUrl, 'https://s3.example/r-1.mp4');
+
+    expect(calledPaths, [
+      '/api/v1/sessions/s-1/recording/start',
+      '/api/v1/sessions/s-1/recording/stop',
+    ]);
+  });
+
+  test('listRecordings parses the recordings list', () async {
+    final api = ApiClient(
+      'http://api.test',
+      httpClient: MockClient((request) async {
+        expect(request.url.path, '/api/v1/sessions/s-1/recordings');
+        return http.Response(
+          jsonEncode([
+            {
+              'id': 'r-1',
+              'status': 'available',
+              'duration_seconds': 90,
+              'size_bytes': 12345,
+              'created_at': '2026-07-16T00:00:00Z',
+              'download_url': 'https://s3.example/r-1.mp4',
+            },
+          ]),
+          200,
+        );
+      }),
+    );
+    final repository = VirtualClassroomRepositoryImpl(api);
+
+    final recordings = await repository.listRecordings('s-1');
+    expect(recordings.single.id, 'r-1');
+    expect(recordings.single.durationSeconds, 90);
+  });
+
   test('courseReport parses the attendance report', () async {
     final api = ApiClient(
       'http://api.test',

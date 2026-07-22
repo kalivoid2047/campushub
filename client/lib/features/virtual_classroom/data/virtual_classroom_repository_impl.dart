@@ -50,4 +50,28 @@ class VirtualClassroomRepositoryImpl implements VirtualClassroomRepository {
   Future<void> leave(String sessionId) async {
     await _api.postJson('/api/v1/sessions/$sessionId/leave', const {});
   }
+
+  @override
+  Future<RecordingInfo> startRecording(String sessionId) async {
+    final json = await _api.postJson(
+      '/api/v1/sessions/$sessionId/recording/start',
+      const {},
+    );
+    return RecordingInfo.fromJson(json);
+  }
+
+  @override
+  Future<RecordingInfo> stopRecording(String sessionId) async {
+    final json = await _api.postJson(
+      '/api/v1/sessions/$sessionId/recording/stop',
+      const {},
+    );
+    return RecordingInfo.fromJson(json);
+  }
+
+  @override
+  Future<List<RecordingInfo>> listRecordings(String sessionId) async {
+    final rows = await _api.getJsonList('/api/v1/sessions/$sessionId/recordings');
+    return [for (final row in rows) RecordingInfo.fromJson(row as Map<String, dynamic>)];
+  }
 }

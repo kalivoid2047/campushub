@@ -63,6 +63,36 @@ class JoinInfo {
       );
 }
 
+/// A session recording (Epic E5 manual start/stop). [status] is
+/// `processing` while LiveKit's Egress job is still running, `available`
+/// once [downloadUrl] is populated, or `failed`.
+class RecordingInfo {
+  const RecordingInfo({
+    required this.id,
+    required this.status,
+    required this.durationSeconds,
+    required this.sizeBytes,
+    required this.createdAt,
+    this.downloadUrl,
+  });
+
+  final String id;
+  final String status; // processing | available | failed
+  final int durationSeconds;
+  final int sizeBytes;
+  final DateTime createdAt;
+  final String? downloadUrl;
+
+  factory RecordingInfo.fromJson(Map<String, dynamic> json) => RecordingInfo(
+        id: json['id'] as String,
+        status: json['status'] as String,
+        durationSeconds: json['duration_seconds'] as int,
+        sizeBytes: json['size_bytes'] as int,
+        createdAt: DateTime.parse(json['created_at'] as String),
+        downloadUrl: json['download_url'] as String?,
+      );
+}
+
 abstract class VirtualClassroomRepository {
   /// Requires connectivity — sessions are not cached (docs/09 does not list
   /// this among the offline-cached reads; a live class inherently needs a
@@ -80,4 +110,12 @@ abstract class VirtualClassroomRepository {
   Future<JoinInfo> join(String sessionId);
 
   Future<void> leave(String sessionId);
+
+  /// Lecturer-only server-side; requires connectivity plus LiveKit/storage
+  /// configured, surfaced as an [AppException] otherwise.
+  Future<RecordingInfo> startRecording(String sessionId);
+
+  Future<RecordingInfo> stopRecording(String sessionId);
+
+  Future<List<RecordingInfo>> listRecordings(String sessionId);
 }

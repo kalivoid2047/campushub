@@ -31,3 +31,15 @@ class JoinResponse(BaseModel):
     # (docs/10); None until then.
     signaling_url: str | None = None
     sfu_token: str | None = None
+
+
+class RecordingResponse(BaseModel):
+    id: uuid.UUID
+    status: str
+    duration_seconds: int
+    size_bytes: int
+    created_at: datetime
+    # A time-limited direct download link once the recording is available
+    # (docs/04 section 10 presigned-URL pattern); None while still processing
+    # or if the storage backend can't presign.
+    download_url: str | None = None

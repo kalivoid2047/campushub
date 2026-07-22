@@ -67,5 +67,9 @@ class SessionRecording(Base, UUIDPrimaryKeyMixin, TimestampMixin):
         default=RecordingStatus.PROCESSING,
         nullable=False,
     )
+    # The LiveKit Egress job backing this recording — used to stop it and to
+    # reconcile status/size/duration on read (no webhook receiver; see
+    # VirtualClassroomService._reconcile_recording).
+    egress_id: Mapped[str | None] = mapped_column(String(64), unique=True, nullable=True)
 
     session: Mapped[ClassSession] = relationship(back_populates="recordings")

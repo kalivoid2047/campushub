@@ -13,9 +13,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_db_session
 from app.core.security import CurrentUser, get_current_user
+from app.core.storage import get_storage
+from app.modules.virtual_classroom.models import RecordingStatus
 from app.modules.virtual_classroom.schemas import (
     CreateSessionRequest,
     JoinResponse,
+    RecordingResponse,
     SessionResponse,
 )
 from app.modules.virtual_classroom.service import VirtualClassroomService
@@ -25,6 +28,21 @@ router = APIRouter()
 
 def _service(session: AsyncSession = Depends(get_db_session)) -> VirtualClassroomService:
     return VirtualClassroomService(session)
+
+
+def _recording_response(r) -> RecordingResponse:
+    return RecordingResponse(
+        id=r.id,
+        status=r.status.value,
+        duration_seconds=r.duration_seconds,
+        size_bytes=r.size_bytes,
+        created_at=r.created_at,
+        download_url=(
+            get_storage().presigned_url(r.storage_key)
+            if r.status == RecordingStatus.AVAILABLE
+            else None
+        ),
+    )
 
 
 def _response(s) -> SessionResponse:
@@ -125,3 +143,43 @@ async def leave_session(
     service: VirtualClassroomService = Depends(_service),
 ) -> None:
     await service.leave(user, session_id)
+
+
+@router.post(
+    "/sessions/{session_id}/recording/start",
+    response_model=RecordingResponse,
+    status_code=201,
+    summary="Start recording a live session (lecturer)",
+)
+async def start_recording(
+    session_id: uuid.UUID,
+    user: CurrentUser = Depends(get_current_user),
+    service: VirtualClassroomService = Depends(_service),
+) -> RecordingResponse:
+    return _recording_response(await service.start_recording(user, session_id))
+
+
+@router.post(
+    "/sessions/{session_id}/recording/stop",
+    response_model=RecordingResponse,
+    summary="Stop the in-progress recording (lecturer)",
+)
+async def stop_recording(
+    session_id: uuid.UUID,
+    user: CurrentUser = Depends(get_current_user),
+    service: VirtualClassroomService = Depends(_service),
+) -> RecordingResponse:
+    return _recording_response(await service.stop_recording(user, session_id))
+
+
+@router.get(
+    "/sessions/{session_id}/recordings",
+    response_model=list[RecordingResponse],
+    summary="List recordings for a session",
+)
+async def list_recordings(
+    session_id: uuid.UUID,
+    user: CurrentUser = Depends(get_current_user),
+    service: VirtualClassroomService = Depends(_service),
+) -> list[RecordingResponse]:
+    return [_recording_response(r) for r in await service.list_recordings(user, session_id)]

@@ -9,7 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.attendance.models import AttendanceRecord
-from app.modules.virtual_classroom.models import ClassSession
+from app.modules.virtual_classroom.models import ClassSession, SessionRecording
 
 
 class VirtualClassroomRepository:
@@ -54,3 +54,34 @@ class VirtualClassroomRepository:
 
     def add_attendance(self, record: AttendanceRecord) -> None:
         self._session.add(record)
+
+    # --- Recordings ---
+
+    async def create_recording(
+        self, class_session_id: uuid.UUID, storage_key: str, egress_id: str
+    ) -> SessionRecording:
+        recording = SessionRecording(
+            class_session_id=class_session_id, storage_key=storage_key, egress_id=egress_id
+        )
+        self._session.add(recording)
+        await self._session.flush()
+        return recording
+
+    async def get_active_recording(self, class_session_id: uuid.UUID) -> SessionRecording | None:
+        from app.modules.virtual_classroom.models import RecordingStatus
+
+        result = await self._session.execute(
+            select(SessionRecording).where(
+                SessionRecording.class_session_id == class_session_id,
+                SessionRecording.status == RecordingStatus.PROCESSING,
+            )
+        )
+        return result.scalar_one_or_none()
+
+    async def list_recordings(self, class_session_id: uuid.UUID) -> list[SessionRecording]:
+        result = await self._session.execute(
+            select(SessionRecording)
+            .where(SessionRecording.class_session_id == class_session_id)
+            .order_by(SessionRecording.created_at)
+        )
+        return list(result.scalars())

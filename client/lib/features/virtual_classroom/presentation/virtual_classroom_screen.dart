@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -106,6 +107,12 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
               onLeave: () => ref
                   .read(virtualClassroomRepositoryProvider)
                   .leave(session.id),
+              onStartRecording: () => ref
+                  .read(virtualClassroomRepositoryProvider)
+                  .startRecording(session.id),
+              onStopRecording: () => ref
+                  .read(virtualClassroomRepositoryProvider)
+                  .stopRecording(session.id),
             ),
           ),
         );
@@ -127,6 +134,69 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
     } finally {
       if (mounted) setState(() => _busy.remove(session.id));
     }
+  }
+
+  Future<void> _viewRecordings(ClassSessionSummary session) async {
+    List<RecordingInfo> recordings;
+    try {
+      recordings = await ref
+          .read(virtualClassroomRepositoryProvider)
+          .listRecordings(session.id);
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('$error')));
+      }
+      return;
+    }
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text('${session.title} — Recordings'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: recordings.isEmpty
+              ? const Text('No recordings for this session.')
+              : Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    for (final recording in recordings)
+                      ListTile(
+                        leading: Icon(switch (recording.status) {
+                          'available' => Icons.play_circle_outline,
+                          'failed' => Icons.error_outline,
+                          _ => Icons.hourglass_top,
+                        }),
+                        title: Text(_recordingSubtitle(recording)),
+                        subtitle: Text(recording.status),
+                        trailing: recording.downloadUrl == null
+                            ? null
+                            : IconButton(
+                                tooltip: 'Copy download link',
+                                icon: const Icon(Icons.copy),
+                                onPressed: () {
+                                  Clipboard.setData(
+                                    ClipboardData(text: recording.downloadUrl!),
+                                  );
+                                  ScaffoldMessenger.of(dialogContext).showSnackBar(
+                                    const SnackBar(
+                                        content: Text('Link copied.')),
+                                  );
+                                },
+                              ),
+                      ),
+                  ],
+                ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -185,9 +255,18 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
               .end(sessions[index].id),
         ),
         onJoin: () => _join(sessions[index]),
+        onViewRecordings: () => _viewRecordings(sessions[index]),
       ),
     );
   }
+}
+
+String _recordingSubtitle(RecordingInfo recording) {
+  final minutes = recording.durationSeconds ~/ 60;
+  final seconds = recording.durationSeconds % 60;
+  final duration = '${minutes}m ${seconds.toString().padLeft(2, '0')}s';
+  final sizeMb = (recording.sizeBytes / (1024 * 1024)).toStringAsFixed(1);
+  return '$duration • $sizeMb MB';
 }
 
 class _SessionTile extends StatelessWidget {
@@ -197,6 +276,7 @@ class _SessionTile extends StatelessWidget {
     required this.onStart,
     required this.onEnd,
     required this.onJoin,
+    required this.onViewRecordings,
   });
 
   final ClassSessionSummary session;
@@ -204,6 +284,7 @@ class _SessionTile extends StatelessWidget {
   final VoidCallback onStart;
   final VoidCallback onEnd;
   final VoidCallback onJoin;
+  final VoidCallback onViewRecordings;
 
   @override
   Widget build(BuildContext context) {
@@ -256,6 +337,12 @@ class _SessionTile extends StatelessWidget {
                     onPressed: onEnd,
                   ),
                 ],
+                if (session.status == 'ended')
+                  IconButton(
+                    tooltip: 'Recordings',
+                    icon: const Icon(Icons.video_library_outlined),
+                    onPressed: onViewRecordings,
+                  ),
               ],
             ),
     );

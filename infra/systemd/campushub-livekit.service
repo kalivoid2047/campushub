@@ -1,0 +1,19 @@
+# Native process deployment (no containers) — docs/13-deployment-guide.md.
+#
+# Install: download the LiveKit server release binary for the host platform
+# to /opt/campushub/livekit-server (https://github.com/livekit/livekit —
+# a single static binary, no package manager needed), and place
+# infra/livekit/livekit.yaml at /opt/campushub/livekit.yaml with real
+# secrets substituted.
+[Unit]
+Description=CampusHub LiveKit SFU (WebRTC media plane)
+After=network.target
+
+[Service]
+User=campushub
+WorkingDirectory=/opt/campushub
+ExecStart=/opt/campushub/livekit-server --config /opt/campushub/livekit.yaml
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

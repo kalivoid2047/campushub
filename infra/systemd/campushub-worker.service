@@ -1,0 +1,13 @@
+[Unit]
+Description=CampusHub background worker
+After=network.target postgresql.service redis.service
+
+[Service]
+User=campushub
+WorkingDirectory=/opt/campushub/backend
+EnvironmentFile=/opt/campushub/.env
+ExecStart=/opt/campushub/venv/bin/python -m app.workers.main
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

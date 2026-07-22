@@ -1,0 +1,41 @@
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# Python
+backend/**/__pycache__/
+backend/**/*.pyc
+backend/.venv/
+backend/.pytest_cache/
+backend/.ruff_cache/
+backend/*.egg-info/
+
+# Flutter / Dart
+client/.dart_tool/
+client/.flutter-plugins
+client/.flutter-plugins-dependencies
+client/build/
+client/**/generated_plugin_registrant.dart
+client/ios/Pods/
+client/android/.gradle/
+
+# IDE
+.vscode/
+.idea/
+*.iml
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Infra
+infra/terraform/.terraform/
+infra/terraform/*.tfstate
+infra/terraform/*.tfstate.backup
+
+# Logs
+*.log
+
+# Throwaway/local-only scratch scripts
+backend/scripts_tmp_dev_bootstrap.py

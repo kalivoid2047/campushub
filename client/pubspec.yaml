@@ -1,0 +1,40 @@
+name: campushub
+description: CampusHub — offline-first Digital Campus Platform client.
+publish_to: "none"
+version: 0.1.0+1
+
+environment:
+  sdk: ">=3.4.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  # Raw-SQL local store (no codegen); ffi variant works on desktop + tests,
+  # sqflite provides the mobile implementation.
+  sqflite: ^2.3.0
+  sqflite_common_ffi: ^2.3.0
+  # Web-compatible sqflite factory (IndexedDB/WASM-backed) — the ffi
+  # factory above requires dart:ffi, unavailable in a browser.
+  sqflite_common_ffi_web: ^1.1.0
+  flutter_secure_storage: ^9.2.0
+  http: ^1.2.0
+  web_socket_channel: ^3.0.0
+  flutter_riverpod: ^2.5.0
+  go_router: ^14.0.0
+  path: ^1.9.0
+  path_provider: ^2.1.0
+  connectivity_plus: ^6.0.0
+  livekit_client: ^2.3.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  integration_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/icons/
+    - assets/images/

@@ -1,0 +1,27 @@
+# LiveKit server config — native binary install, no containers
+# (docs/10-virtual-classroom.md, docs/13-deployment-guide.md).
+#
+# LiveKit ships as a single Go binary: download the release for the target
+# platform, place it at /opt/campushub/livekit-server, and run it with
+# `--config /opt/campushub/livekit.yaml` (see
+# infra/systemd/campushub-livekit.service). No Docker image, no compose file.
+
+port: 7880
+
+rtc:
+  # UDP port range for media; open these on the host firewall. A NAT'd
+  # single-server deployment also needs use_external_ip below.
+  port_range_start: 50000
+  port_range_end: 50100
+  tcp_port: 7881
+  use_external_ip: true
+
+# Room-join tokens are signed with this key/secret pair; the backend mints
+# them via livekit-api using the same values (LIVEKIT_API_KEY /
+# LIVEKIT_API_SECRET in .env — keep the two in sync).
+keys:
+  devkey: change-me-to-a-random-32-byte-secret
+
+# Native recording/composite egress is a separate optional binary
+# (livekit-egress); not enabled by default. FR-VC-4 (session recording)
+# is deferred until that's wired up — see docs/10-virtual-classroom.md.

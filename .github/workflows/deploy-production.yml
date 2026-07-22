@@ -1,0 +1,12 @@
+name: Deploy to Production
+
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production  # manual approval gate — docs/13-deployment-guide.md §3
+    steps:
+      - uses: actions/checkout@v4
+      - run: echo "TODO: SSH deploy — push backend wheel, alembic upgrade head, restart systemd units (docs/13-deployment-guide.md §3)"

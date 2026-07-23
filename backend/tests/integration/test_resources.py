@@ -112,7 +112,7 @@ async def _build_course(client, session, world) -> dict:
     return {"course_id": course_id, "module_id": module.json()["id"]}
 
 
-def _upload_kwargs(title="Lecture Notes", content=b"hello campus"):
+def _upload_kwargs(title="Lecture Notes", content=b"%PDF-1.4\nhello campus"):
     return {
         "data": {"title": title, "type": "document"},
         "files": {"file": ("notes.pdf", io.BytesIO(content), "application/pdf")},
@@ -146,7 +146,7 @@ async def test_structure_requires_admin_role(client, session, world):
 
 async def test_upload_list_download_roundtrip(client, session, world):
     built = await _build_course(client, session, world)
-    content = b"offline-first course material"
+    content = b"%PDF-1.4\noffline-first course material"
 
     up = await client.post(
         f"/api/v1/modules/{built['module_id']}/resources",
@@ -180,6 +180,29 @@ async def test_upload_list_download_roundtrip(client, session, world):
         f"/api/v1/modules/{built['module_id']}/resources", headers=world["student"]
     )
     assert relist.json()[0]["download_count"] == 1
+
+
+async def test_upload_rejects_content_that_does_not_match_declared_type(
+    client, session, world
+):
+    built = await _build_course(client, session, world)
+    resp = await client.post(
+        f"/api/v1/modules/{built['module_id']}/resources",
+        data={"title": "Fake slides", "type": "slide"},
+        # A real MP4 signature declared as a "slide" — the declared type and
+        # the actual bytes disagree, which is exactly what this check exists
+        # to catch (docs/08 section 6).
+        files={
+            "file": (
+                "notes.pptx",
+                io.BytesIO(b"\x00\x00\x00\x18ftypmp42" + b"\x00" * 10),
+                "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+            )
+        },
+        headers=world["lecturer"],
+    )
+    assert resp.status_code == 422
+    assert "does not match" in resp.json()["detail"]
 
 
 async def test_student_cannot_upload(client, session, world):
@@ -216,21 +239,21 @@ async def test_new_version_supersedes(client, session, world):
     built = await _build_course(client, session, world)
     up = await client.post(
         f"/api/v1/modules/{built['module_id']}/resources",
-        **_upload_kwargs(content=b"v1"),
+        **_upload_kwargs(content=b"%PDF-1.4\nv1"),
         headers=world["lecturer"],
     )
     resource_id = up.json()["id"]
 
     v2 = await client.post(
         f"/api/v1/resources/{resource_id}/versions",
-        files={"file": ("notes2.pdf", io.BytesIO(b"v2 content"), "application/pdf")},
+        files={"file": ("notes2.pdf", io.BytesIO(b"%PDF-1.4\nv2 content"), "application/pdf")},
         headers=world["lecturer"],
     )
     assert v2.status_code == 201
     assert v2.json()["current_version"]["version_number"] == 2
 
     blob = await client.get(f"/api/v1/resources/{resource_id}/content", headers=world["student"])
-    assert blob.content == b"v2 content"
+    assert blob.content == b"%PDF-1.4\nv2 content"
 
 
 async def test_quota_enforced(client, session, world):

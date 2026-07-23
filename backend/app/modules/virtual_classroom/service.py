@@ -28,6 +28,7 @@ from app.modules.virtual_classroom.models import (
 )
 from app.modules.virtual_classroom.repository import VirtualClassroomRepository
 from app.modules.virtual_classroom.schemas import CreateSessionRequest
+from app.shared.audit import record_audit_event
 
 _ADMIN_ROLES = {"dept_admin", "institution_admin", "super_admin"}
 
@@ -234,6 +235,15 @@ class VirtualClassroomService:
             await client.aclose()
 
         recording = await self._repo.create_recording(class_session.id, storage_key, info.egress_id)
+        await record_audit_event(
+            self._session,
+            tenant_id=user.tenant_id,
+            actor_id=user.user_id,
+            action="recording.started",
+            target_type="session_recording",
+            target_id=recording.id,
+            meta={"class_session_id": str(class_session.id)},
+        )
         await self._session.commit()
         return recording
 
@@ -257,6 +267,15 @@ class VirtualClassroomService:
             await client.aclose()
 
         self._apply_egress_info(recording, info)
+        await record_audit_event(
+            self._session,
+            tenant_id=user.tenant_id,
+            actor_id=user.user_id,
+            action="recording.stopped",
+            target_type="session_recording",
+            target_id=recording.id,
+            meta={"class_session_id": str(class_session.id), "status": recording.status.value},
+        )
         await self._session.commit()
         return recording
 

@@ -8,17 +8,27 @@ the integration suite once a local PostgreSQL is available
 
 import uuid
 
+import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from app import models_registry
 from app.core.db import get_db_session
+from app.core.rate_limit import reset_rate_limiter_for_tests
 from app.core.security import hash_password
 from app.main import app
 from app.modules.iam.models import RoleName, Tenant, TenantStatus, User
 
 Base = models_registry.Base
+
+
+@pytest.fixture(autouse=True)
+def _reset_login_rate_limiter():
+    # The limiter is process-global (docs/08 section 2); without this, one
+    # test's failed-login attempts could spuriously lock out another.
+    reset_rate_limiter_for_tests()
+    yield
 
 
 @pytest_asyncio.fixture

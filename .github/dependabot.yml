@@ -1,0 +1,22 @@
+version: 2
+updates:
+  # Backend (docs/08-security-design.md A06: automated dependency scanning).
+  - package-ecosystem: pip
+    directory: /backend
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 10
+
+  # Flutter/Dart client.
+  - package-ecosystem: pub
+    directory: /client
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 10
+
+  # The CI workflows themselves are a supply-chain surface too (pinned
+  # action versions can go stale/vulnerable same as any other dependency).
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly

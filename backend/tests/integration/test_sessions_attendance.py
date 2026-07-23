@@ -325,6 +325,32 @@ async def test_list_recordings_reconciles_processing_status(client, world, monke
     assert recording["size_bytes"] == 999
 
 
+async def test_recording_start_stop_are_audit_logged(client, world, monkeypatch):
+    _patch_livekit(monkeypatch, _configured_settings())
+    session_id = await _live_session(client, world)
+    await client.post(
+        f"/api/v1/sessions/{session_id}/recording/start", headers=world["lecturer"]
+    )
+    await client.post(
+        f"/api/v1/sessions/{session_id}/recording/stop", headers=world["lecturer"]
+    )
+
+    admin_token = create_access_token(
+        user_id=world["users"]["lecturer"].id,
+        tenant_id=world["course"].tenant_id,
+        roles=["institution_admin"],
+    )
+    logs = (
+        await client.get(
+            "/api/v1/admin/audit-logs",
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+    ).json()
+    actions = [entry["action"] for entry in logs]
+    assert "recording.started" in actions
+    assert "recording.stopped" in actions
+
+
 async def test_join_with_livekit_configured_mints_a_scoped_token(client, world, monkeypatch):
     from app.core.config import Settings
     from app.modules.virtual_classroom import service as vc_service

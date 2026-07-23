@@ -16,6 +16,7 @@ from app.modules.admin.schemas import (
     CreateDepartmentRequest,
     EnrollUserRequest,
 )
+from app.shared.audit import record_audit_event
 
 
 class AdminService:
@@ -27,6 +28,15 @@ class AdminService:
         self, user: CurrentUser, request: CreateDepartmentRequest
     ) -> Department:
         department = await self._repo.create_department(user.tenant_id, request.name, request.code)
+        await record_audit_event(
+            self._session,
+            tenant_id=user.tenant_id,
+            actor_id=user.user_id,
+            action="department.created",
+            target_type="department",
+            target_id=department.id,
+            meta={"code": department.code},
+        )
         await self._session.commit()
         return department
 
@@ -45,6 +55,15 @@ class AdminService:
             name=request.name,
             code=request.code,
             term=request.term,
+        )
+        await record_audit_event(
+            self._session,
+            tenant_id=user.tenant_id,
+            actor_id=user.user_id,
+            action="course.created",
+            target_type="course",
+            target_id=course.id,
+            meta={"code": course.code, "term": course.term},
         )
         await self._session.commit()
         return course
@@ -67,6 +86,15 @@ class AdminService:
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Already enrolled")
         enrollment = await self._repo.enroll(
             course_id, request.user_id, EnrollmentRole(request.role)
+        )
+        await record_audit_event(
+            self._session,
+            tenant_id=user.tenant_id,
+            actor_id=user.user_id,
+            action="enrollment.created",
+            target_type="course_enrollment",
+            target_id=enrollment.id,
+            meta={"course_id": str(course_id), "user_id": str(request.user_id), "role": request.role},
         )
         await self._session.commit()
         return enrollment

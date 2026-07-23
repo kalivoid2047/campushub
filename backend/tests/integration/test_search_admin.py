@@ -103,7 +103,7 @@ async def _seed_content(client, world):
     await client.post(
         f"/api/v1/modules/{module['id']}/resources",
         data={"title": "Human genome slides", "type": "slide"},
-        files={"file": ("g.pdf", io.BytesIO(b"data"), "application/pdf")},
+        files={"file": ("g.pdf", io.BytesIO(b"%PDF-1.4\ndata"), "application/pdf")},
         headers=world["lecturer"],
     )
     await client.post(
@@ -176,7 +176,7 @@ async def test_storage_usage_endpoint(client, world):
     usage = await client.get("/api/v1/admin/storage/usage", headers=world["admin"])
     assert usage.status_code == 200
     body = usage.json()
-    assert body["used_bytes"] == 4  # b"data"
+    assert body["used_bytes"] == 13  # len(b"%PDF-1.4\ndata")
     assert body["quota_bytes"] > 0
 
     denied = await client.get("/api/v1/admin/storage/usage", headers=world["student"])
@@ -236,6 +236,39 @@ async def test_list_users_endpoint(client, world):
     # dept_admin-tier access is allowed; plain student/lecturer roles are not.
     denied = await client.get("/api/v1/admin/users", headers=world["student"])
     assert denied.status_code == 403
+
+
+async def test_admin_mutations_are_audit_logged(client, world):
+    dept = (
+        await client.post(
+            "/api/v1/admin/departments",
+            json={"name": "Physics", "code": "PHY"},
+            headers=world["admin"],
+        )
+    ).json()
+    course = (
+        await client.post(
+            "/api/v1/admin/courses",
+            json={
+                "department_id": dept["id"],
+                "name": "Mechanics",
+                "code": "PHY101",
+                "term": "2026-F",
+            },
+            headers=world["admin"],
+        )
+    ).json()
+    await client.post(
+        f"/api/v1/admin/courses/{course['id']}/enrollments",
+        json={"user_id": str(world["users"]["outsider"].id), "role": "student"},
+        headers=world["admin"],
+    )
+
+    logs = (await client.get("/api/v1/admin/audit-logs", headers=world["admin"])).json()
+    actions = [entry["action"] for entry in logs]
+    assert "department.created" in actions
+    assert "course.created" in actions
+    assert "enrollment.created" in actions
 
 
 async def test_my_courses_endpoint(client, world):

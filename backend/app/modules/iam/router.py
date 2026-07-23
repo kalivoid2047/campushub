@@ -5,7 +5,7 @@ Two routers: auth (mounted at /api/v1/auth) and tenant/user administration
 (mounted at /api/v1/admin). See docs/06-api-design.md section 6.
 """
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_db_session
@@ -31,23 +31,42 @@ def _service(session: AsyncSession = Depends(get_db_session)) -> IamService:
     return IamService(session)
 
 
+def _client_ip(request: Request) -> str | None:
+    # Trust X-Forwarded-For's first hop only because the deployment
+    # topology (infra/nginx/campushub.conf) always fronts the API with our
+    # own reverse proxy, which sets it — never derived from a header an
+    # internet client could set directly on a request that skips the proxy.
+    forwarded = request.headers.get("x-forwarded-for")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.client.host if request.client else None
+
+
 @router.post("/login", response_model=TokenPairResponse, summary="Log in")
 async def login(
-    request: LoginRequest, service: IamService = Depends(_service)
+    request: LoginRequest,
+    http_request: Request,
+    service: IamService = Depends(_service),
 ) -> TokenPairResponse:
-    return await service.login(request)
+    return await service.login(request, client_ip=_client_ip(http_request))
 
 
 @router.post("/refresh", response_model=TokenPairResponse, summary="Rotate tokens")
 async def refresh(
-    request: RefreshRequest, service: IamService = Depends(_service)
+    request: RefreshRequest,
+    http_request: Request,
+    service: IamService = Depends(_service),
 ) -> TokenPairResponse:
-    return await service.refresh(request.refresh_token)
+    return await service.refresh(request.refresh_token, client_ip=_client_ip(http_request))
 
 
 @router.post("/logout", status_code=204, summary="Log out (revoke refresh token)")
-async def logout(request: LogoutRequest, service: IamService = Depends(_service)) -> None:
-    await service.logout(request.refresh_token)
+async def logout(
+    request: LogoutRequest,
+    http_request: Request,
+    service: IamService = Depends(_service),
+) -> None:
+    await service.logout(request.refresh_token, client_ip=_client_ip(http_request))
 
 
 @router.get("/me", response_model=UserResponse, summary="Current user profile")
@@ -74,10 +93,10 @@ async def me(
 )
 async def create_tenant(
     request: CreateTenantRequest,
-    _: CurrentUser = Depends(require_role("super_admin")),
+    current: CurrentUser = Depends(require_role("super_admin")),
     service: IamService = Depends(_service),
 ) -> TenantResponse:
-    tenant = await service.provision_tenant(request)
+    tenant = await service.provision_tenant(request, actor_id=current.user_id)
     return TenantResponse(
         id=tenant.id,
         name=tenant.name,
@@ -100,7 +119,7 @@ async def create_user(
 ) -> UserResponse:
     # Tenant scope comes from the caller's JWT, never from the request body
     # (docs/08-security-design.md: never trust client-supplied tenant IDs).
-    user = await service.create_user(current.tenant_id, request)
+    user = await service.create_user(current.tenant_id, request, actor_id=current.user_id)
     return UserResponse(
         id=user.id,
         tenant_id=user.tenant_id,

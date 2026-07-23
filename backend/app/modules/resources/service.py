@@ -19,6 +19,7 @@ from app.core.security import CurrentUser
 from app.core.storage import get_storage, sha256_hex
 from app.modules.admin.models import EnrollmentRole
 from app.modules.admin.repository import AdminRepository
+from app.modules.resources.content_validation import matches_declared_type
 from app.modules.resources.models import Resource, ResourceType, ResourceVersion
 from app.modules.resources.repository import ResourcesRepository
 from app.modules.resources.schemas import CreateModuleRequest
@@ -140,6 +141,13 @@ class ResourcesService:
         quota = await self._admin_repo.get_or_create_quota(user.tenant_id)
         if quota.used_bytes + len(data) > quota.quota_bytes:
             raise HTTPException(status_code=413, detail="Institution storage quota exceeded")
+
+        # Signature check independent of the client-supplied filename/
+        # Content-Type (docs/08 section 6) — both are attacker-controlled.
+        if not matches_declared_type(resource.type, data):
+            raise HTTPException(
+                status_code=422, detail="File content does not match the declared resource type"
+            )
 
         # Randomized, tenant-namespaced key — never the client filename
         # (docs/08 section 6).

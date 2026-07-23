@@ -19,6 +19,15 @@ jobs:
         working-directory: backend
       - run: pytest
         working-directory: backend
+      # A01/A06 (docs/08-security-design.md): fail the build on newly
+      # disclosed dependency vulnerabilities. PYSEC-2026-1325 is ignored —
+      # it's a Minerva timing attack on ecdsa's ECDSA *signing* path
+      # (upstream has stated there's no planned fix), pulled in transitively
+      # by python-jose; this app mints/verifies tokens with RS256 only
+      # (app/core/security.py ALGORITHM = "RS256"), so that path is never
+      # exercised. Re-evaluate if the app ever adds an ECDSA-signed flow.
+      - run: pip install pip-audit && pip-audit --ignore-vuln PYSEC-2026-1325
+        working-directory: backend
 
   client:
     runs-on: ubuntu-latest

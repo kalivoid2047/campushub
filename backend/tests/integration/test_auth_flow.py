@@ -5,8 +5,11 @@ logout, RBAC guards, and tenant provisioning + isolation (AC-1/AC-4,
 docs/02 section 7).
 """
 
+import uuid
+
 import pytest
 
+from app.core.security import create_access_token
 from tests.conftest import make_super_admin_token
 
 pytestmark = pytest.mark.asyncio
@@ -136,6 +139,121 @@ async def test_tenant_provisioning_and_isolation(client, seeded_tenant):
         },
     )
     assert cross.status_code == 401
+
+
+async def test_login_locks_out_after_repeated_failures(client, seeded_tenant):
+    bad = {**GOOD_LOGIN, "password": "wrong-password"}
+    for _ in range(5):
+        resp = await client.post(LOGIN, json=bad)
+        assert resp.status_code == 401
+
+    # The 6th attempt — even with the *correct* password — is throttled,
+    # not evaluated: the account is locked out for a stretch, not merely
+    # slowed one request at a time.
+    locked = await client.post(LOGIN, json=GOOD_LOGIN)
+    assert locked.status_code == 429
+    assert "Retry-After" in locked.headers
+
+
+async def test_login_success_clears_the_lockout_counter(client, seeded_tenant):
+    bad = {**GOOD_LOGIN, "password": "wrong-password"}
+    for _ in range(3):
+        assert (await client.post(LOGIN, json=bad)).status_code == 401
+
+    # Below the threshold — succeeding resets the counter rather than
+    # merely pausing it.
+    assert (await client.post(LOGIN, json=GOOD_LOGIN)).status_code == 200
+
+    for _ in range(3):
+        assert (await client.post(LOGIN, json=bad)).status_code == 401
+    assert (await client.post(LOGIN, json=GOOD_LOGIN)).status_code == 200
+
+
+async def test_login_lockout_is_scoped_per_account(client, seeded_tenant):
+    # httpx's ASGITransport reports the same fixed client host for every
+    # request, so distinct X-Forwarded-For headers stand in for distinct
+    # source IPs here — otherwise the shared IP-scoped key (below) would
+    # also trip and this test would prove nothing about account scoping.
+    bad = {**GOOD_LOGIN, "password": "wrong-password"}
+    headers_a = {"X-Forwarded-For": "203.0.113.10"}
+    for _ in range(5):
+        assert (
+            await client.post(LOGIN, json=bad, headers=headers_a)
+        ).status_code == 401
+    assert (
+        await client.post(LOGIN, json=GOOD_LOGIN, headers=headers_a)
+    ).status_code == 429
+
+    # A different account from a different source IP is unaffected.
+    unaffected = await client.post(
+        LOGIN,
+        json={
+            "email": "nobody-else@test-college.edu",
+            "password": "whatever-wrong",
+            "tenant_slug": "test-college",
+        },
+        headers={"X-Forwarded-For": "203.0.113.20"},
+    )
+    assert unaffected.status_code == 401  # evaluated normally, not 429
+
+
+async def test_login_lockout_also_applies_per_ip_across_accounts(client, seeded_tenant):
+    # One source spraying guesses across many different (here, nonexistent)
+    # accounts should still trip the IP-scoped half of the limiter, even
+    # though no single account key ever reaches the threshold alone.
+    headers = {"X-Forwarded-For": "198.51.100.5"}
+    for i in range(5):
+        resp = await client.post(
+            LOGIN,
+            json={
+                "email": f"guess-{i}@test-college.edu",
+                "password": "whatever-wrong",
+                "tenant_slug": "test-college",
+            },
+            headers=headers,
+        )
+        assert resp.status_code == 401
+
+    throttled = await client.post(LOGIN, json=GOOD_LOGIN, headers=headers)
+    assert throttled.status_code == 429
+
+
+def _tenant_admin_headers(tenant_id) -> dict:
+    token = create_access_token(user_id=uuid.uuid4(), tenant_id=tenant_id, roles=["institution_admin"])
+    return {"Authorization": f"Bearer {token}"}
+
+
+async def test_auth_events_are_audit_logged(client, seeded_tenant):
+    tenant, _ = seeded_tenant
+    admin_headers = _tenant_admin_headers(tenant.id)
+
+    await client.post(LOGIN, json={**GOOD_LOGIN, "password": "wrong-password"})
+    login = (await client.post(LOGIN, json=GOOD_LOGIN)).json()
+    await client.post(LOGOUT, json={"refresh_token": login["refresh_token"]})
+
+    logs = (
+        await client.get("/api/v1/admin/audit-logs", headers=admin_headers)
+    ).json()
+    actions = [entry["action"] for entry in logs]
+    assert "auth.login_failed" in actions
+    assert "auth.login_succeeded" in actions
+    assert "auth.logout" in actions
+
+
+async def test_refresh_token_reuse_is_audit_logged(client, seeded_tenant):
+    tenant, _ = seeded_tenant
+    admin_headers = _tenant_admin_headers(tenant.id)
+
+    login = (await client.post(LOGIN, json=GOOD_LOGIN)).json()
+    old_refresh = login["refresh_token"]
+    await client.post(REFRESH, json={"refresh_token": old_refresh})
+    # Reusing the now-rotated token is the theft signal.
+    await client.post(REFRESH, json={"refresh_token": old_refresh})
+
+    logs = (
+        await client.get("/api/v1/admin/audit-logs", headers=admin_headers)
+    ).json()
+    assert any(entry["action"] == "auth.refresh_token_reuse_detected" for entry in logs)
 
 
 async def test_duplicate_slug_rejected(client, seeded_tenant):

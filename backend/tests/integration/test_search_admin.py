@@ -169,6 +169,29 @@ async def test_admin_search_excludes_others_dms(client, world):
 async def test_short_query_returns_empty(client, world):
     resp = await client.get("/api/v1/search", params={"q": "g"}, headers=world["student"])
     assert resp.json()["hits"] == []
+    assert resp.json()["truncated"] is False
+
+
+async def test_search_signals_truncation_past_the_per_kind_cap(client, world):
+    module = (
+        await client.post(
+            f"/api/v1/courses/{world['course'].id}/modules",
+            json={"title": "Unit 1"},
+            headers=world["lecturer"],
+        )
+    ).json()
+    for i in range(25):  # more than the 20-per-kind cap
+        await client.post(
+            f"/api/v1/modules/{module['id']}/resources",
+            data={"title": f"Widget lecture {i}", "type": "slide"},
+            files={"file": ("g.pdf", io.BytesIO(b"%PDF-1.4\ndata"), "application/pdf")},
+            headers=world["lecturer"],
+        )
+
+    resp = await client.get("/api/v1/search", params={"q": "widget"}, headers=world["student"])
+    body = resp.json()
+    assert len(body["hits"]) == 20
+    assert body["truncated"] is True
 
 
 async def test_storage_usage_endpoint(client, world):

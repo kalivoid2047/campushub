@@ -28,9 +28,27 @@ class SearchHit {
       );
 }
 
+class SearchResults {
+  const SearchResults({required this.hits, required this.truncated});
+
+  final List<SearchHit> hits;
+  /// True when at least one kind hit its per-kind cap server-side — there
+  /// may be more matches than [hits] shows; the UI should prompt the user
+  /// to narrow the query rather than imply this is everything.
+  final bool truncated;
+
+  factory SearchResults.fromJson(Map<String, dynamic> json) => SearchResults(
+        hits: [
+          for (final row in json['hits'] as List<dynamic>)
+            SearchHit.fromJson(row as Map<String, dynamic>)
+        ],
+        truncated: json['truncated'] as bool? ?? false,
+      );
+}
+
 abstract class SearchRepository {
   /// Permission-scoped keyword search across resources, announcements, and
   /// messages (docs/06 section 6). Requires connectivity — search results
   /// are not cached (docs/09 does not list search among cached reads).
-  Future<List<SearchHit>> search(String query);
+  Future<SearchResults> search(String query);
 }

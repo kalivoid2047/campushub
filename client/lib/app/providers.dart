@@ -15,6 +15,8 @@ import '../features/auth/data/auth_repository_impl.dart';
 import '../features/auth/domain/auth_repository.dart';
 import '../features/communication/data/communication_repository_impl.dart';
 import '../features/communication/domain/communication_repository.dart';
+import '../features/portfolio/data/portfolio_repository_impl.dart';
+import '../features/portfolio/domain/portfolio_repository.dart';
 import '../features/resources/data/download_manager.dart';
 import '../features/resources/data/resources_repository_impl.dart';
 import '../features/resources/domain/resources_repository.dart';
@@ -96,6 +98,10 @@ final attendanceRepositoryProvider = Provider<AttendanceRepository>(
 
 final tenancyAdminRepositoryProvider = Provider<TenancyAdminRepository>(
   (ref) => TenancyAdminRepositoryImpl(ref.watch(apiClientProvider)),
+);
+
+final portfolioRepositoryProvider = Provider<PortfolioRepository>(
+  (ref) => PortfolioRepositoryImpl(ref.watch(apiClientProvider)),
 );
 
 /// Resolved in main() (path_provider is async) and injected via

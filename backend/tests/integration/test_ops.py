@@ -40,9 +40,7 @@ async def test_healthz_always_ok(client):
 
 async def test_readyz_ready_when_db_and_redis_reachable(client, engine, monkeypatch):
     monkeypatch.setattr(app_main, "engine", engine)
-    monkeypatch.setattr(
-        "redis.asyncio.from_url", lambda *_args, **_kwargs: _FakeRedis(fail=False)
-    )
+    monkeypatch.setattr("redis.asyncio.from_url", lambda *_args, **_kwargs: _FakeRedis(fail=False))
 
     resp = await client.get("/readyz")
     assert resp.status_code == 200
@@ -51,9 +49,7 @@ async def test_readyz_ready_when_db_and_redis_reachable(client, engine, monkeypa
 
 async def test_readyz_not_ready_when_redis_unreachable(client, engine, monkeypatch):
     monkeypatch.setattr(app_main, "engine", engine)
-    monkeypatch.setattr(
-        "redis.asyncio.from_url", lambda *_args, **_kwargs: _FakeRedis(fail=True)
-    )
+    monkeypatch.setattr("redis.asyncio.from_url", lambda *_args, **_kwargs: _FakeRedis(fail=True))
 
     resp = await client.get("/readyz")
     assert resp.status_code == 503

@@ -192,6 +192,8 @@ void main() {
             'rows': [
               {
                 'user_id': 'u-1',
+                'full_name': 'Ada Lovelace',
+                'email': 'ada@campus.edu',
                 'sessions_attended': 3,
                 'total_sessions': 4,
                 'attendance_rate': 0.75,
@@ -207,5 +209,30 @@ void main() {
     final report = await repository.courseReport('c-1');
     expect(report.totalSessions, 4);
     expect(report.rows.single.attendanceRate, 0.75);
+    expect(report.rows.single.fullName, 'Ada Lovelace');
+    expect(report.rows.single.email, 'ada@campus.edu');
+  });
+
+  test('myAttendance hits the self-service endpoint', () async {
+    final api = ApiClient(
+      'http://api.test',
+      httpClient: MockClient((request) async {
+        expect(request.url.path, '/api/v1/courses/c-1/attendance/me');
+        return http.Response(
+          jsonEncode({
+            'course_id': 'c-1',
+            'sessions_attended': 2,
+            'total_sessions': 4,
+            'attendance_rate': 0.5,
+          }),
+          200,
+        );
+      }),
+    );
+    final repository = AttendanceRepositoryImpl(api);
+
+    final mine = await repository.myAttendance('c-1');
+    expect(mine.sessionsAttended, 2);
+    expect(mine.attendanceRate, 0.5);
   });
 }

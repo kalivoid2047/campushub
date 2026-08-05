@@ -18,6 +18,7 @@ from app.modules.attendance.schemas import (
     CourseAttendanceReport,
     CourseAttendanceRow,
     ManualAttendanceRequest,
+    MyAttendanceResponse,
 )
 from app.modules.virtual_classroom.repository import VirtualClassroomRepository
 
@@ -88,13 +89,39 @@ class AttendanceService:
         rows = [
             CourseAttendanceRow(
                 user_id=user_id,
+                full_name=full_name,
+                email=email,
                 sessions_attended=attended,
                 total_sessions=total,
                 attendance_rate=round(attended / total, 4) if total else 0.0,
             )
-            for user_id, attended in counts
+            for user_id, full_name, email, attended in counts
         ]
         return CourseAttendanceReport(course_id=course_id, total_sessions=total, rows=rows)
+
+    async def my_attendance(self, user: CurrentUser, course_id: uuid.UUID) -> MyAttendanceResponse:
+        """Self-service view (beyond FR-ATT-2's lecturer-only report): any
+        enrolled member can see their own record, never anyone else's."""
+        course = await self._admin_repo.get_course(user.tenant_id, course_id)
+        if course is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Course not found")
+        if not user.has_any_role(*_ADMIN_ROLES):
+            enrollment = await self._admin_repo.get_enrollment(course_id, user.user_id)
+            if enrollment is None:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN, detail="Not enrolled in course"
+                )
+
+        total = await self._repo.count_ended_sessions(user.tenant_id, course_id)
+        attended = await self._repo.attendance_count_for_user(
+            user.tenant_id, course_id, user.user_id
+        )
+        return MyAttendanceResponse(
+            course_id=course_id,
+            sessions_attended=attended,
+            total_sessions=total,
+            attendance_rate=round(attended / total, 4) if total else 0.0,
+        )
 
     async def _ensure_lecturer(self, user: CurrentUser, course_id: uuid.UUID) -> None:
         if user.has_any_role(*_ADMIN_ROLES):

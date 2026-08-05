@@ -18,3 +18,8 @@ class SearchHit(BaseModel):
 class SearchResponse(BaseModel):
     query: str
     hits: list[SearchHit]
+    # True when at least one kind (resource/announcement/message) hit its
+    # per-kind cap and was truncated — there may be more matches than
+    # shown; the client should prompt the user to narrow the query rather
+    # than silently implying `hits` is the complete result set.
+    truncated: bool = False

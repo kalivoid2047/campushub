@@ -14,6 +14,7 @@ from app.modules.assignments.router import router as assignments_router
 from app.modules.virtual_classroom.router import router as virtual_classroom_router
 from app.modules.attendance.router import router as attendance_router
 from app.modules.search.router import router as search_router
+from app.modules.portfolio.router import router as portfolio_router
 from app.modules.admin.router import member_router as admin_member_router
 from app.modules.admin.router import router as admin_router
 from app.modules.sync.router import router as sync_router
@@ -53,6 +54,7 @@ app.include_router(assignments_router, prefix="/api/v1", tags=["assignments"])
 app.include_router(virtual_classroom_router, prefix="/api/v1", tags=["virtual-classroom"])
 app.include_router(attendance_router, prefix="/api/v1", tags=["attendance"])
 app.include_router(search_router, prefix="/api/v1", tags=["search"])
+app.include_router(portfolio_router, prefix="/api/v1", tags=["portfolio"])
 app.include_router(admin_router, prefix="/api/v1/admin", tags=["admin"])
 app.include_router(admin_member_router, prefix="/api/v1", tags=["courses"])
 app.include_router(sync_router, prefix="/api/v1/sync", tags=["sync"])

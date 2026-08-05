@@ -11,4 +11,10 @@ class AttendanceRepositoryImpl implements AttendanceRepository {
     final json = await _api.getJson('/api/v1/courses/$courseId/attendance');
     return CourseAttendanceReport.fromJson(json);
   }
+
+  @override
+  Future<MyAttendance> myAttendance(String courseId) async {
+    final json = await _api.getJson('/api/v1/courses/$courseId/attendance/me');
+    return MyAttendance.fromJson(json);
+  }
 }

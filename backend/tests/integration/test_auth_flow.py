@@ -177,12 +177,8 @@ async def test_login_lockout_is_scoped_per_account(client, seeded_tenant):
     bad = {**GOOD_LOGIN, "password": "wrong-password"}
     headers_a = {"X-Forwarded-For": "203.0.113.10"}
     for _ in range(5):
-        assert (
-            await client.post(LOGIN, json=bad, headers=headers_a)
-        ).status_code == 401
-    assert (
-        await client.post(LOGIN, json=GOOD_LOGIN, headers=headers_a)
-    ).status_code == 429
+        assert (await client.post(LOGIN, json=bad, headers=headers_a)).status_code == 401
+    assert (await client.post(LOGIN, json=GOOD_LOGIN, headers=headers_a)).status_code == 429
 
     # A different account from a different source IP is unaffected.
     unaffected = await client.post(
@@ -219,7 +215,9 @@ async def test_login_lockout_also_applies_per_ip_across_accounts(client, seeded_
 
 
 def _tenant_admin_headers(tenant_id) -> dict:
-    token = create_access_token(user_id=uuid.uuid4(), tenant_id=tenant_id, roles=["institution_admin"])
+    token = create_access_token(
+        user_id=uuid.uuid4(), tenant_id=tenant_id, roles=["institution_admin"]
+    )
     return {"Authorization": f"Bearer {token}"}
 
 
@@ -231,9 +229,7 @@ async def test_auth_events_are_audit_logged(client, seeded_tenant):
     login = (await client.post(LOGIN, json=GOOD_LOGIN)).json()
     await client.post(LOGOUT, json={"refresh_token": login["refresh_token"]})
 
-    logs = (
-        await client.get("/api/v1/admin/audit-logs", headers=admin_headers)
-    ).json()
+    logs = (await client.get("/api/v1/admin/audit-logs", headers=admin_headers)).json()
     actions = [entry["action"] for entry in logs]
     assert "auth.login_failed" in actions
     assert "auth.login_succeeded" in actions
@@ -250,9 +246,7 @@ async def test_refresh_token_reuse_is_audit_logged(client, seeded_tenant):
     # Reusing the now-rotated token is the theft signal.
     await client.post(REFRESH, json={"refresh_token": old_refresh})
 
-    logs = (
-        await client.get("/api/v1/admin/audit-logs", headers=admin_headers)
-    ).json()
+    logs = (await client.get("/api/v1/admin/audit-logs", headers=admin_headers)).json()
     assert any(entry["action"] == "auth.refresh_token_reuse_detected" for entry in logs)
 
 

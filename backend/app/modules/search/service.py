@@ -37,8 +37,11 @@ class SearchService:
             return SearchResponse(query=query, hits=[])
         is_admin = user.has_any_role(*_ADMIN_ROLES)
 
+        # Fetch one past the cap per kind so a full page can be told apart
+        # from "that's actually everything" without a separate COUNT query.
+        fetch_limit = _PER_KIND_LIMIT + 1
         resources = await self._repo.search_resources(
-            user.tenant_id, user.user_id, is_admin, term, _PER_KIND_LIMIT
+            user.tenant_id, user.user_id, is_admin, term, fetch_limit
         )
         if is_admin:
             course_ids, department_ids = await self._repo.all_course_ids(user.tenant_id)
@@ -47,11 +50,20 @@ class SearchService:
                 user.tenant_id, user.user_id
             )
         announcements = await self._repo.search_announcements(
-            user.tenant_id, course_ids, department_ids, term, _PER_KIND_LIMIT
+            user.tenant_id, course_ids, department_ids, term, fetch_limit
         )
         messages = await self._repo.search_messages(
-            user.tenant_id, user.user_id, is_admin, term, _PER_KIND_LIMIT
+            user.tenant_id, user.user_id, is_admin, term, fetch_limit
         )
+
+        truncated = (
+            len(resources) > _PER_KIND_LIMIT
+            or len(announcements) > _PER_KIND_LIMIT
+            or len(messages) > _PER_KIND_LIMIT
+        )
+        resources = resources[:_PER_KIND_LIMIT]
+        announcements = announcements[:_PER_KIND_LIMIT]
+        messages = messages[:_PER_KIND_LIMIT]
 
         hits: list[SearchHit] = []
         hits += [
@@ -88,4 +100,4 @@ class SearchService:
             for m in messages
         ]
         hits.sort(key=lambda h: h.created_at, reverse=True)
-        return SearchResponse(query=query, hits=hits)
+        return SearchResponse(query=query, hits=hits, truncated=truncated)

@@ -9,6 +9,7 @@ import '../features/assignments/presentation/assignments_screen.dart';
 import '../features/attendance/presentation/attendance_screen.dart';
 import '../features/auth/presentation/auth_screen.dart';
 import '../features/communication/presentation/communication_screen.dart';
+import '../features/portfolio/presentation/portfolio_screen.dart';
 import '../features/resources/presentation/resources_screen.dart';
 import '../features/search/presentation/search_screen.dart';
 import '../features/tenancy_admin/presentation/tenancy_admin_screen.dart';
@@ -72,6 +73,10 @@ final GoRouter appRouter = GoRouter(
     GoRoute(
       path: '/admin',
       builder: (context, state) => const TenancyAdminScreen(),
+    ),
+    GoRoute(
+      path: '/portfolio',
+      builder: (context, state) => const PortfolioScreen(),
     ),
   ],
 );
@@ -147,6 +152,11 @@ class _HomeShellState extends ConsumerState<HomeShell> {
               icon: const Icon(Icons.admin_panel_settings_outlined),
               onPressed: () => context.push('/admin'),
             ),
+          IconButton(
+            tooltip: 'My portfolio',
+            icon: const Icon(Icons.badge_outlined),
+            onPressed: () => context.push('/portfolio'),
+          ),
           IconButton(
             tooltip: 'Search',
             icon: const Icon(Icons.search),

@@ -5,6 +5,8 @@ automatic attendance (FR-VC-5), end-closes-open-windows, rejoin
 accumulation, manual marking (FR-ATT-1), and the course report (FR-ATT-2).
 """
 
+import uuid
+
 import pytest
 import pytest_asyncio
 
@@ -181,6 +183,71 @@ async def test_manual_marking_and_course_report(client, world):
     )
     assert student_row["sessions_attended"] == 1
     assert student_row["attendance_rate"] == 1.0
+    # Names/emails resolved, not just raw IDs (the client used to render
+    # the bare UUID as the list-tile title).
+    assert student_row["full_name"] == world["users"]["student"].full_name
+    assert student_row["email"] == world["users"]["student"].email
+
+
+async def test_course_report_includes_zero_attendance_students(client, session, world):
+    # A second student enrolled in the course who never attends anything —
+    # the report must still list them (at 0%), not silently omit them.
+    ghost = User(
+        tenant_id=world["course"].tenant_id,
+        email="ghost@vc.edu",
+        password_hash=hash_password("password-123"),
+        full_name="Ghost Student",
+    )
+    session.add(ghost)
+    await session.flush()
+    session.add(
+        CourseEnrollment(
+            course_id=world["course"].id, user_id=ghost.id, role=EnrollmentRole.STUDENT
+        )
+    )
+    await session.commit()
+
+    session_id = await _live_session(client, world)
+    await client.post(f"/api/v1/sessions/{session_id}/join", headers=world["student"])
+    await client.post(f"/api/v1/sessions/{session_id}/end", headers=world["lecturer"])
+
+    report = (
+        await client.get(
+            f"/api/v1/courses/{world['course'].id}/attendance", headers=world["lecturer"]
+        )
+    ).json()
+    ghost_row = next(r for r in report["rows"] if r["user_id"] == str(ghost.id))
+    assert ghost_row["full_name"] == "Ghost Student"
+    assert ghost_row["sessions_attended"] == 0
+    assert ghost_row["attendance_rate"] == 0.0
+
+
+async def test_my_attendance_self_service(client, world):
+    session_id = await _live_session(client, world)
+    await client.post(f"/api/v1/sessions/{session_id}/join", headers=world["student"])
+    await client.post(f"/api/v1/sessions/{session_id}/end", headers=world["lecturer"])
+
+    mine = await client.get(
+        f"/api/v1/courses/{world['course'].id}/attendance/me", headers=world["student"]
+    )
+    assert mine.status_code == 200
+    body = mine.json()
+    assert body["sessions_attended"] == 1
+    assert body["attendance_rate"] == 1.0
+    # No roster leakage — only the caller's own numbers come back.
+    assert "rows" not in body
+    assert "user_id" not in body
+
+
+async def test_my_attendance_requires_enrollment(client, world):
+    outsider_token = create_access_token(
+        user_id=uuid.uuid4(), tenant_id=world["course"].tenant_id, roles=["student"]
+    )
+    resp = await client.get(
+        f"/api/v1/courses/{world['course'].id}/attendance/me",
+        headers={"Authorization": f"Bearer {outsider_token}"},
+    )
+    assert resp.status_code == 403
 
 
 async def test_join_without_livekit_configured_returns_null_media(client, world):
@@ -308,16 +375,12 @@ async def test_recording_start_stop_lifecycle(client, world, monkeypatch):
 async def test_list_recordings_reconciles_processing_status(client, world, monkeypatch):
     _patch_livekit(monkeypatch, _configured_settings())
     session_id = await _live_session(client, world)
-    await client.post(
-        f"/api/v1/sessions/{session_id}/recording/start", headers=world["lecturer"]
-    )
+    await client.post(f"/api/v1/sessions/{session_id}/recording/start", headers=world["lecturer"])
 
     # Listing (not stopping) also reconciles against the Egress API, so a
     # recording that finished on LiveKit's side shows up as available even
     # if nobody called /recording/stop.
-    listed = await client.get(
-        f"/api/v1/sessions/{session_id}/recordings", headers=world["student"]
-    )
+    listed = await client.get(f"/api/v1/sessions/{session_id}/recordings", headers=world["student"])
     assert listed.status_code == 200
     [recording] = listed.json()
     assert recording["status"] == "available"
@@ -328,12 +391,8 @@ async def test_list_recordings_reconciles_processing_status(client, world, monke
 async def test_recording_start_stop_are_audit_logged(client, world, monkeypatch):
     _patch_livekit(monkeypatch, _configured_settings())
     session_id = await _live_session(client, world)
-    await client.post(
-        f"/api/v1/sessions/{session_id}/recording/start", headers=world["lecturer"]
-    )
-    await client.post(
-        f"/api/v1/sessions/{session_id}/recording/stop", headers=world["lecturer"]
-    )
+    await client.post(f"/api/v1/sessions/{session_id}/recording/start", headers=world["lecturer"])
+    await client.post(f"/api/v1/sessions/{session_id}/recording/stop", headers=world["lecturer"])
 
     admin_token = create_access_token(
         user_id=world["users"]["lecturer"].id,

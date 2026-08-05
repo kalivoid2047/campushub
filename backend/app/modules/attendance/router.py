@@ -14,6 +14,7 @@ from app.modules.attendance.schemas import (
     AttendanceRecordResponse,
     CourseAttendanceReport,
     ManualAttendanceRequest,
+    MyAttendanceResponse,
 )
 from app.modules.attendance.service import AttendanceService
 
@@ -75,3 +76,16 @@ async def course_attendance(
     service: AttendanceService = Depends(_service),
 ) -> CourseAttendanceReport:
     return await service.course_report(user, course_id)
+
+
+@router.get(
+    "/courses/{course_id}/attendance/me",
+    response_model=MyAttendanceResponse,
+    summary="The caller's own attendance in a course (any enrolled member)",
+)
+async def my_attendance(
+    course_id: uuid.UUID,
+    user: CurrentUser = Depends(get_current_user),
+    service: AttendanceService = Depends(_service),
+) -> MyAttendanceResponse:
+    return await service.my_attendance(user, course_id)

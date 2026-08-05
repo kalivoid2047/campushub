@@ -20,7 +20,7 @@ class SearchScreen extends ConsumerStatefulWidget {
 class _SearchScreenState extends ConsumerState<SearchScreen> {
   final _controller = TextEditingController();
   Timer? _debounce;
-  List<SearchHit>? _hits;
+  SearchResults? _results;
   bool _loading = false;
   String? _error;
 
@@ -36,7 +36,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     final trimmed = query.trim();
     if (trimmed.length < 2) {
       setState(() {
-        _hits = null;
+        _results = null;
         _error = null;
       });
       return;
@@ -51,8 +51,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       _error = null;
     });
     try {
-      final hits = await ref.read(searchRepositoryProvider).search(query);
-      if (mounted) setState(() => _hits = hits);
+      final results = await ref.read(searchRepositoryProvider).search(query);
+      if (mounted) setState(() => _results = results);
     } catch (error) {
       if (mounted) setState(() => _error = '$error');
     } finally {
@@ -112,25 +112,44 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
           child:
               Padding(padding: const EdgeInsets.all(24), child: Text(_error!)));
     }
-    final hits = _hits;
-    if (hits == null) {
+    final results = _results;
+    if (results == null) {
       return const Center(child: Text('Type at least 2 characters to search.'));
     }
-    if (hits.isEmpty) {
+    if (results.hits.isEmpty) {
       return const Center(child: Text('No results.'));
     }
-    return ListView.builder(
-      itemCount: hits.length,
-      itemBuilder: (context, index) {
-        final hit = hits[index];
-        return ListTile(
-          leading: Icon(_iconFor(hit.kind)),
-          title: Text(hit.title),
-          subtitle:
-              Text(hit.snippet, maxLines: 2, overflow: TextOverflow.ellipsis),
-          onTap: () => _openHit(hit),
-        );
-      },
+    return Column(
+      children: [
+        if (results.truncated)
+          Container(
+            width: double.infinity,
+            color: Theme.of(context).colorScheme.secondaryContainer,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Text(
+              'Showing the first matches in each category — refine your '
+              'search to narrow the results.',
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSecondaryContainer,
+              ),
+            ),
+          ),
+        Expanded(
+          child: ListView.builder(
+            itemCount: results.hits.length,
+            itemBuilder: (context, index) {
+              final hit = results.hits[index];
+              return ListTile(
+                leading: Icon(_iconFor(hit.kind)),
+                title: Text(hit.title),
+                subtitle: Text(hit.snippet,
+                    maxLines: 2, overflow: TextOverflow.ellipsis),
+                onTap: () => _openHit(hit),
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 }

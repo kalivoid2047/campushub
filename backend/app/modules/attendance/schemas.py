@@ -24,6 +24,8 @@ class AttendanceRecordResponse(BaseModel):
 
 class CourseAttendanceRow(BaseModel):
     user_id: uuid.UUID
+    full_name: str
+    email: str
     sessions_attended: int
     total_sessions: int
     attendance_rate: float
@@ -33,3 +35,10 @@ class CourseAttendanceReport(BaseModel):
     course_id: uuid.UUID
     total_sessions: int
     rows: list[CourseAttendanceRow]
+
+
+class MyAttendanceResponse(BaseModel):
+    course_id: uuid.UUID
+    sessions_attended: int
+    total_sessions: int
+    attendance_rate: float

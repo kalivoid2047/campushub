@@ -41,12 +41,13 @@ void main() {
     );
     final repository = SearchRepositoryImpl(api);
 
-    final hits = await repository.search('genome');
-    expect(hits, hasLength(2));
-    expect(hits[0].kind, 'resource');
-    expect(hits[0].contextId, 'm-1');
-    expect(hits[1].kind, 'message');
-    expect(hits[1].contextId, 'ch-1');
+    final results = await repository.search('genome');
+    expect(results.hits, hasLength(2));
+    expect(results.truncated, isFalse);
+    expect(results.hits[0].kind, 'resource');
+    expect(results.hits[0].contextId, 'm-1');
+    expect(results.hits[1].kind, 'message');
+    expect(results.hits[1].contextId, 'ch-1');
   });
 
   test('empty hits returns an empty list', () async {
@@ -58,6 +59,21 @@ void main() {
     );
     final repository = SearchRepositoryImpl(api);
 
-    expect(await repository.search('x'), isEmpty);
+    expect((await repository.search('x')).hits, isEmpty);
+  });
+
+  test('truncated flag is parsed through', () async {
+    final api = ApiClient(
+      'http://api.test',
+      httpClient: MockClient((request) async {
+        return http.Response(
+          jsonEncode({'query': 'x', 'hits': [], 'truncated': true}),
+          200,
+        );
+      }),
+    );
+    final repository = SearchRepositoryImpl(api);
+
+    expect((await repository.search('x')).truncated, isTrue);
   });
 }

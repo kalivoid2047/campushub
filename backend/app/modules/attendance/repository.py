@@ -9,7 +9,9 @@ import uuid
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.modules.admin.models import CourseEnrollment
 from app.modules.attendance.models import AttendanceRecord
+from app.modules.iam.models import User
 from app.modules.virtual_classroom.models import ClassSession, SessionStatus
 
 
@@ -57,10 +59,13 @@ class AttendanceRepository:
 
     async def attendance_counts_by_user(
         self, tenant_id: uuid.UUID, course_id: uuid.UUID
-    ) -> list[tuple[uuid.UUID, int]]:
-        """(user_id, sessions_attended) for ended sessions of the course."""
-        result = await self._session.execute(
-            select(AttendanceRecord.user_id, func.count(AttendanceRecord.id))
+    ) -> list[tuple[uuid.UUID, str, str, int]]:
+        """(user_id, full_name, email, sessions_attended) for every user
+        enrolled in the course — including zero-attendance enrollees, via an
+        outer join against attendance, so a lecturer can see who never
+        showed up rather than only who did."""
+        attended = (
+            select(AttendanceRecord.user_id, func.count(AttendanceRecord.id).label("attended"))
             .join(ClassSession, ClassSession.id == AttendanceRecord.class_session_id)
             .where(
                 ClassSession.course_id == course_id,
@@ -68,5 +73,33 @@ class AttendanceRepository:
                 ClassSession.status == SessionStatus.ENDED,
             )
             .group_by(AttendanceRecord.user_id)
+            .subquery()
         )
-        return [(row[0], int(row[1])) for row in result]
+        result = await self._session.execute(
+            select(
+                User.id,
+                User.full_name,
+                User.email,
+                func.coalesce(attended.c.attended, 0),
+            )
+            .join(CourseEnrollment, CourseEnrollment.user_id == User.id)
+            .outerjoin(attended, attended.c.user_id == User.id)
+            .where(CourseEnrollment.course_id == course_id, User.tenant_id == tenant_id)
+            .order_by(User.full_name)
+        )
+        return [(row[0], row[1], row[2], int(row[3])) for row in result]
+
+    async def attendance_count_for_user(
+        self, tenant_id: uuid.UUID, course_id: uuid.UUID, user_id: uuid.UUID
+    ) -> int:
+        result = await self._session.execute(
+            select(func.count(AttendanceRecord.id))
+            .join(ClassSession, ClassSession.id == AttendanceRecord.class_session_id)
+            .where(
+                ClassSession.course_id == course_id,
+                ClassSession.tenant_id == tenant_id,
+                ClassSession.status == SessionStatus.ENDED,
+                AttendanceRecord.user_id == user_id,
+            )
+        )
+        return int(result.scalar_one())

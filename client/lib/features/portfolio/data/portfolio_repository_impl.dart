@@ -1,5 +1,14 @@
+import '../../../core/network/api_client.dart';
 import '../domain/portfolio_repository.dart';
 
-/// Concrete repository combining the local SQLite data source and the
-/// remote API data source, per Clean Architecture (docs/16-folder-structure.md §2).
-class PortfolioRepositoryImpl implements PortfolioRepository {}
+class PortfolioRepositoryImpl implements PortfolioRepository {
+  PortfolioRepositoryImpl(this._api);
+
+  final ApiClient _api;
+
+  @override
+  Future<Portfolio> myPortfolio() async {
+    final json = await _api.getJson('/api/v1/portfolio/me');
+    return Portfolio.fromJson(json);
+  }
+}

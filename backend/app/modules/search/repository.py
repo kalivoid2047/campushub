@@ -2,14 +2,17 @@
 
 Permission scoping is baked into every query: resources via course
 enrollment, announcements via visibility scopes, messages via channel
-membership. MVP uses case-insensitive LIKE (portable across SQLite dev and
-PostgreSQL); PostgreSQL full-text search is the documented upgrade path
-(docs/00-implementation-roadmap.md).
+membership. On PostgreSQL, matching uses real full-text search against the
+generated tsvector columns from migration 0008_search_fts (GIN-indexed —
+scales past what LIKE can do). SQLite (the test suite; local dev without a
+Postgres install) has no tsvector/GIN equivalent, so it falls back to
+case-insensitive LIKE, selected per-query by dialect — same permission
+scoping and result shape either way, just a different match strategy.
 """
 
 import uuid
 
-from sqlalchemy import or_, select
+from sqlalchemy import ColumnElement, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.admin.models import Course, CourseEnrollment
@@ -27,6 +30,20 @@ from app.modules.resources.models import CourseModule, Resource
 class SearchRepository:
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
+        # session.bind is the AsyncEngine; its .dialect is available
+        # without a round-trip (docs/13 section 1: Postgres in
+        # staging/prod, SQLite in tests/local-dev-without-Postgres).
+        self._postgres = session.bind is not None and session.bind.dialect.name == "postgresql"
+
+    def _match(self, fts_table: str, term: str, *ilike_columns: ColumnElement) -> ColumnElement:
+        """A boolean WHERE clause matching `term` — full-text search against
+        `fts_table`.search_vector on Postgres, ILIKE across `ilike_columns`
+        everywhere else."""
+        if self._postgres:
+            return text(
+                f"{fts_table}.search_vector @@ plainto_tsquery('english', :term)"
+            ).bindparams(term=term)
+        return or_(*(col.ilike(f"%{term}%") for col in ilike_columns))
 
     async def search_resources(
         self,
@@ -42,7 +59,7 @@ class SearchRepository:
             .where(
                 Resource.tenant_id == tenant_id,
                 Resource.deleted_at.is_(None),
-                Resource.title.ilike(f"%{term}%"),
+                self._match("resources", term, Resource.title),
             )
         )
         if not is_admin:
@@ -77,10 +94,7 @@ class SearchRepository:
             .where(
                 Announcement.tenant_id == tenant_id,
                 or_(*visibility),
-                or_(
-                    Announcement.title.ilike(f"%{term}%"),
-                    Announcement.body.ilike(f"%{term}%"),
-                ),
+                self._match("announcements", term, Announcement.title, Announcement.body),
             )
             .limit(limit)
         )
@@ -99,7 +113,7 @@ class SearchRepository:
             .join(Channel, Channel.id == Message.channel_id)
             .where(
                 Message.tenant_id == tenant_id,
-                Message.body.ilike(f"%{term}%"),
+                self._match("messages", term, Message.body),
             )
         )
         if not is_admin:

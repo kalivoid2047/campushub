@@ -2,7 +2,7 @@ name: Deploy to Staging
 
 on:
   push:
-    branches: [main]
+    branches: [master]
 
 jobs:
   deploy:
@@ -10,4 +10,5 @@ jobs:
     environment: staging
     steps:
       - uses: actions/checkout@v4
-      - run: echo "TODO: SSH deploy — push backend wheel, alembic upgrade head, restart systemd units (docs/13-deployment-guide.md §3)"
+      - run: |
+          echo "TODO: SSH deploy - push backend wheel, alembic upgrade head, restart systemd units (docs/13-deployment-guide.md section 3)"

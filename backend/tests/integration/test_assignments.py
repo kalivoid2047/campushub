@@ -6,7 +6,7 @@ grade lock, and the submissions sync handler (offline path, FR-ASG-2).
 """
 
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import pytest
 import pytest_asyncio
@@ -137,7 +137,7 @@ async def test_draft_then_submit_lifecycle(client, world):
 
 
 async def test_late_submission_flagged(client, world):
-    past_due = (datetime.now(timezone.utc) - timedelta(hours=1)).isoformat()
+    past_due = (datetime.now(UTC) - timedelta(hours=1)).isoformat()
     assignment = await _create_assignment(client, world, due_at=past_due)
     resp = await client.post(
         f"/api/v1/assignments/{assignment['id']}/submissions",
@@ -148,7 +148,7 @@ async def test_late_submission_flagged(client, world):
 
 
 async def test_late_rejected_when_disallowed(client, world):
-    past_due = (datetime.now(timezone.utc) - timedelta(hours=1)).isoformat()
+    past_due = (datetime.now(UTC) - timedelta(hours=1)).isoformat()
     assignment = await _create_assignment(client, world, due_at=past_due, allow_late=False)
     resp = await client.post(
         f"/api/v1/assignments/{assignment['id']}/submissions",

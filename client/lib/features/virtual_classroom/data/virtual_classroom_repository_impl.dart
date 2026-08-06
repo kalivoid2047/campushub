@@ -71,7 +71,11 @@ class VirtualClassroomRepositoryImpl implements VirtualClassroomRepository {
 
   @override
   Future<List<RecordingInfo>> listRecordings(String sessionId) async {
-    final rows = await _api.getJsonList('/api/v1/sessions/$sessionId/recordings');
-    return [for (final row in rows) RecordingInfo.fromJson(row as Map<String, dynamic>)];
+    final rows =
+        await _api.getJsonList('/api/v1/sessions/$sessionId/recordings');
+    return [
+      for (final row in rows)
+        RecordingInfo.fromJson(row as Map<String, dynamic>)
+    ];
   }
 }

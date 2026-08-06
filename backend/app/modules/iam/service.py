@@ -6,7 +6,7 @@ revokes the whole chain for that user (theft signal).
 """
 
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -111,10 +111,10 @@ class IamService:
         if stored is None:
             raise _invalid_credentials()
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         expires_at = stored.expires_at
         if expires_at.tzinfo is None:  # SQLite loses tzinfo; treat as UTC
-            expires_at = expires_at.replace(tzinfo=timezone.utc)
+            expires_at = expires_at.replace(tzinfo=UTC)
 
         if stored.revoked_at is not None:
             # Reuse of a rotated/revoked token — assume theft, kill the chain
@@ -241,7 +241,7 @@ class IamService:
         stored = await self._repo.store_refresh_token(
             user_id=user.id,
             token_hash=refresh_hash,
-            expires_at=datetime.now(timezone.utc)
+            expires_at=datetime.now(UTC)
             + timedelta(days=self._settings.jwt_refresh_token_ttl_days),
         )
         pair = TokenPairResponse(

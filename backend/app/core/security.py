@@ -9,7 +9,7 @@ tenant identity the backend ever trusts — never a client-supplied value.
 import hashlib
 import secrets
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from functools import lru_cache
 
 from argon2 import PasswordHasher
@@ -85,7 +85,7 @@ def _keypair() -> tuple[str, str]:
 
 def create_access_token(*, user_id: uuid.UUID, tenant_id: uuid.UUID, roles: list[str]) -> str:
     settings = get_settings()
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     claims = {
         "sub": str(user_id),
         "tenant_id": str(tenant_id),

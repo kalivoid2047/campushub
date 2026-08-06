@@ -33,9 +33,7 @@ def _is_video(data: bytes) -> bool:
         return True
     if data.startswith(b"\x1a\x45\xdf\xa3"):  # WebM/MKV (EBML header)
         return True
-    if len(data) >= 12 and data[:4] == b"RIFF" and data[8:12] == b"AVI ":
-        return True
-    return False
+    return len(data) >= 12 and data[:4] == b"RIFF" and data[8:12] == b"AVI "
 
 
 # Resource types with no entry (LINK) carry no binary payload of their own

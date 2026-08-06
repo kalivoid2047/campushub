@@ -181,7 +181,8 @@ class _CallScreenState extends State<CallScreen> {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.fiber_manual_record, color: Colors.red, size: 14),
+                    Icon(Icons.fiber_manual_record,
+                        color: Colors.red, size: 14),
                     SizedBox(width: 4),
                     Text('REC', style: TextStyle(color: Colors.red)),
                   ],
@@ -245,11 +246,13 @@ class _CallScreenState extends State<CallScreen> {
                                   ? Theme.of(context).colorScheme.primary
                                   : Colors.white,
                             ),
-                      onPressed: _togglingScreenShare ? null : _toggleScreenShare,
+                      onPressed:
+                          _togglingScreenShare ? null : _toggleScreenShare,
                     ),
                     const SizedBox(width: 16),
                     IconButton(
-                      tooltip: _recording ? 'Stop recording' : 'Start recording',
+                      tooltip:
+                          _recording ? 'Stop recording' : 'Start recording',
                       icon: _togglingRecording
                           ? const SizedBox(
                               width: 20,

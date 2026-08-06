@@ -47,7 +47,8 @@ class _PortfolioScreenState extends ConsumerState<PortfolioScreen> {
                   children: [
                     Text('${snapshot.error}', textAlign: TextAlign.center),
                     const SizedBox(height: 12),
-                    OutlinedButton(onPressed: _refresh, child: const Text('Retry')),
+                    OutlinedButton(
+                        onPressed: _refresh, child: const Text('Retry')),
                   ],
                 ),
               ),

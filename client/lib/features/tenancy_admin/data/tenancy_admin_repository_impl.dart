@@ -13,7 +13,8 @@ class TenancyAdminRepositoryImpl implements TenancyAdminRepository {
   Future<List<AdminDepartment>> listDepartments() async {
     final rows = await _api.getJsonList('/api/v1/admin/departments');
     return [
-      for (final row in rows) AdminDepartment.fromJson(row as Map<String, dynamic>)
+      for (final row in rows)
+        AdminDepartment.fromJson(row as Map<String, dynamic>)
     ];
   }
 
@@ -32,7 +33,9 @@ class TenancyAdminRepositoryImpl implements TenancyAdminRepository {
   @override
   Future<List<AdminCourse>> listCourses() async {
     final rows = await _api.getJsonList('/api/v1/admin/courses');
-    return [for (final row in rows) AdminCourse.fromJson(row as Map<String, dynamic>)];
+    return [
+      for (final row in rows) AdminCourse.fromJson(row as Map<String, dynamic>)
+    ];
   }
 
   @override
@@ -73,7 +76,9 @@ class TenancyAdminRepositoryImpl implements TenancyAdminRepository {
       '/api/v1/admin/users',
       query: {'limit': '$limit', 'offset': '$offset'},
     );
-    return [for (final row in rows) TenantUser.fromJson(row as Map<String, dynamic>)];
+    return [
+      for (final row in rows) TenantUser.fromJson(row as Map<String, dynamic>)
+    ];
   }
 
   @override
@@ -101,13 +106,15 @@ class TenancyAdminRepositoryImpl implements TenancyAdminRepository {
   }
 
   @override
-  Future<List<AdminAuditLogEntry>> auditLogs({int limit = 100, int offset = 0}) async {
+  Future<List<AdminAuditLogEntry>> auditLogs(
+      {int limit = 100, int offset = 0}) async {
     final rows = await _api.getJsonList(
       '/api/v1/admin/audit-logs',
       query: {'limit': '$limit', 'offset': '$offset'},
     );
     return [
-      for (final row in rows) AdminAuditLogEntry.fromJson(row as Map<String, dynamic>)
+      for (final row in rows)
+        AdminAuditLogEntry.fromJson(row as Map<String, dynamic>)
     ];
   }
 }

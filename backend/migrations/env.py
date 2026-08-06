@@ -14,7 +14,7 @@ if config.config_file_name is not None:
 settings = get_settings()
 config.set_main_option("sqlalchemy.url", settings.database_url.replace("+asyncpg", ""))
 
-from app import models_registry  # noqa: E402,F401 — registers all module models
+from app import models_registry
 
 target_metadata = models_registry.Base.metadata
 

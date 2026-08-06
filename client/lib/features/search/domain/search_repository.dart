@@ -32,6 +32,7 @@ class SearchResults {
   const SearchResults({required this.hits, required this.truncated});
 
   final List<SearchHit> hits;
+
   /// True when at least one kind hit its per-kind cap server-side — there
   /// may be more matches than [hits] shows; the UI should prompt the user
   /// to narrow the query rather than imply this is everything.

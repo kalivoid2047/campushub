@@ -179,7 +179,8 @@ class _SessionsScreenState extends ConsumerState<SessionsScreen> {
                                   Clipboard.setData(
                                     ClipboardData(text: recording.downloadUrl!),
                                   );
-                                  ScaffoldMessenger.of(dialogContext).showSnackBar(
+                                  ScaffoldMessenger.of(dialogContext)
+                                      .showSnackBar(
                                     const SnackBar(
                                         content: Text('Link copied.')),
                                   );

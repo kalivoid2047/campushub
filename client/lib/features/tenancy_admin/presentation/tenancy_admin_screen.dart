@@ -134,7 +134,8 @@ class _OverviewTabState extends ConsumerState<_OverviewTab> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Storage', style: Theme.of(context).textTheme.titleMedium),
+                      Text('Storage',
+                          style: Theme.of(context).textTheme.titleMedium),
                       const SizedBox(height: 12),
                       ClipRRect(
                         borderRadius: BorderRadius.circular(4),
@@ -155,7 +156,8 @@ class _OverviewTabState extends ConsumerState<_OverviewTab> {
                 ),
               ),
               const SizedBox(height: 16),
-              Text('Engagement', style: Theme.of(context).textTheme.titleMedium),
+              Text('Engagement',
+                  style: Theme.of(context).textTheme.titleMedium),
               const SizedBox(height: 8),
               GridView.count(
                 crossAxisCount: 2,
@@ -165,11 +167,18 @@ class _OverviewTabState extends ConsumerState<_OverviewTab> {
                 crossAxisSpacing: 8,
                 childAspectRatio: 2.2,
                 children: [
-                  _StatCard(label: 'Users', value: engagement.users, icon: Icons.people_outline),
                   _StatCard(
-                      label: 'Resources', value: engagement.resources, icon: Icons.folder_outlined),
+                      label: 'Users',
+                      value: engagement.users,
+                      icon: Icons.people_outline),
                   _StatCard(
-                      label: 'Messages', value: engagement.messages, icon: Icons.chat_bubble_outline),
+                      label: 'Resources',
+                      value: engagement.resources,
+                      icon: Icons.folder_outlined),
+                  _StatCard(
+                      label: 'Messages',
+                      value: engagement.messages,
+                      icon: Icons.chat_bubble_outline),
                   _StatCard(
                       label: 'Submissions',
                       value: engagement.submissions,
@@ -185,7 +194,8 @@ class _OverviewTabState extends ConsumerState<_OverviewTab> {
 }
 
 class _StatCard extends StatelessWidget {
-  const _StatCard({required this.label, required this.value, required this.icon});
+  const _StatCard(
+      {required this.label, required this.value, required this.icon});
 
   final String label;
   final int value;
@@ -268,7 +278,8 @@ class _StructureTabState extends ConsumerState<_StructureTab> {
             const SizedBox(height: 8),
             TextField(
               controller: codeController,
-              decoration: const InputDecoration(labelText: 'Code', helperText: 'e.g. CS'),
+              decoration: const InputDecoration(
+                  labelText: 'Code', helperText: 'e.g. CS'),
               textCapitalization: TextCapitalization.characters,
             ),
           ],
@@ -278,12 +289,16 @@ class _StructureTabState extends ConsumerState<_StructureTab> {
               onPressed: () => Navigator.of(dialogContext).pop(false),
               child: const Text('Cancel')),
           FilledButton(
-              onPressed: () => Navigator.of(dialogContext).pop(true), child: const Text('Create')),
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: const Text('Create')),
         ],
       ),
     );
     if (created != true || !mounted) return;
-    if (nameController.text.trim().isEmpty || codeController.text.trim().isEmpty) return;
+    if (nameController.text.trim().isEmpty ||
+        codeController.text.trim().isEmpty) {
+      return;
+    }
     try {
       await ref.read(tenancyAdminRepositoryProvider).createDepartment(
             name: nameController.text.trim(),
@@ -292,15 +307,16 @@ class _StructureTabState extends ConsumerState<_StructureTab> {
       if (mounted) setState(_load);
     } on AppException catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error.message)));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(error.message)));
       }
     }
   }
 
   Future<void> _addCourse() async {
     if (_departments.isEmpty) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Create a department first.')));
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Create a department first.')));
       return;
     }
     final nameController = TextEditingController();
@@ -320,9 +336,11 @@ class _StructureTabState extends ConsumerState<_StructureTab> {
                 decoration: const InputDecoration(labelText: 'Department'),
                 items: [
                   for (final department in _departments)
-                    DropdownMenuItem(value: department.id, child: Text(department.name)),
+                    DropdownMenuItem(
+                        value: department.id, child: Text(department.name)),
                 ],
-                onChanged: (value) => setDialogState(() => departmentId = value!),
+                onChanged: (value) =>
+                    setDialogState(() => departmentId = value!),
               ),
               const SizedBox(height: 8),
               TextField(
@@ -332,15 +350,15 @@ class _StructureTabState extends ConsumerState<_StructureTab> {
               const SizedBox(height: 8),
               TextField(
                 controller: codeController,
-                decoration:
-                    const InputDecoration(labelText: 'Code', helperText: 'e.g. CS101'),
+                decoration: const InputDecoration(
+                    labelText: 'Code', helperText: 'e.g. CS101'),
                 textCapitalization: TextCapitalization.characters,
               ),
               const SizedBox(height: 8),
               TextField(
                 controller: termController,
-                decoration:
-                    const InputDecoration(labelText: 'Term', helperText: 'e.g. 2026-fall'),
+                decoration: const InputDecoration(
+                    labelText: 'Term', helperText: 'e.g. 2026-fall'),
               ),
             ],
           ),
@@ -370,7 +388,8 @@ class _StructureTabState extends ConsumerState<_StructureTab> {
       if (mounted) setState(_load);
     } on AppException catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error.message)));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(error.message)));
       }
     }
   }
@@ -385,7 +404,8 @@ class _StructureTabState extends ConsumerState<_StructureTab> {
           Row(
             children: [
               Expanded(
-                  child: Text('Departments', style: Theme.of(context).textTheme.titleMedium)),
+                  child: Text('Departments',
+                      style: Theme.of(context).textTheme.titleMedium)),
               IconButton(
                 tooltip: 'Add department',
                 icon: const Icon(Icons.add_circle_outline),
@@ -402,7 +422,9 @@ class _StructureTabState extends ConsumerState<_StructureTab> {
                   child: Center(child: CircularProgressIndicator()),
                 );
               }
-              if (snapshot.hasError) return _ErrorRetry(message: '${snapshot.error}');
+              if (snapshot.hasError) {
+                return _ErrorRetry(message: '${snapshot.error}');
+              }
               final departments = snapshot.data ?? const [];
               if (departments.isEmpty) {
                 return const Padding(
@@ -425,7 +447,9 @@ class _StructureTabState extends ConsumerState<_StructureTab> {
           const Divider(height: 32),
           Row(
             children: [
-              Expanded(child: Text('Courses', style: Theme.of(context).textTheme.titleMedium)),
+              Expanded(
+                  child: Text('Courses',
+                      style: Theme.of(context).textTheme.titleMedium)),
               IconButton(
                 tooltip: 'Add course',
                 icon: const Icon(Icons.add_circle_outline),
@@ -442,7 +466,9 @@ class _StructureTabState extends ConsumerState<_StructureTab> {
                   child: Center(child: CircularProgressIndicator()),
                 );
               }
-              if (snapshot.hasError) return _ErrorRetry(message: '${snapshot.error}');
+              if (snapshot.hasError) {
+                return _ErrorRetry(message: '${snapshot.error}');
+              }
               final courses = snapshot.data ?? const [];
               if (courses.isEmpty) {
                 return const Padding(
@@ -533,7 +559,8 @@ class _PeopleTabState extends ConsumerState<_PeopleTab> {
           .showSnackBar(SnackBar(content: Text('Created ${user.fullName}')));
     } on AppException catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error.message)));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(error.message)));
       }
     } finally {
       if (mounted) setState(() => _creatingUser = false);
@@ -563,7 +590,8 @@ class _PeopleTabState extends ConsumerState<_PeopleTab> {
           .showSnackBar(const SnackBar(content: Text('Enrolled.')));
     } on AppException catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error.message)));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(error.message)));
       }
     } finally {
       if (mounted) setState(() => _enrolling = false);
@@ -583,13 +611,16 @@ class _PeopleTabState extends ConsumerState<_PeopleTab> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Create user', style: Theme.of(context).textTheme.titleMedium),
+                  Text('Create user',
+                      style: Theme.of(context).textTheme.titleMedium),
                   const SizedBox(height: 12),
                   TextFormField(
                     controller: _fullNameController,
                     decoration: const InputDecoration(labelText: 'Full name'),
                     validator: (value) =>
-                        (value == null || value.trim().isEmpty) ? 'Required' : null,
+                        (value == null || value.trim().isEmpty)
+                            ? 'Required'
+                            : null,
                   ),
                   const SizedBox(height: 8),
                   TextFormField(
@@ -597,22 +628,27 @@ class _PeopleTabState extends ConsumerState<_PeopleTab> {
                     decoration: const InputDecoration(labelText: 'Email'),
                     keyboardType: TextInputType.emailAddress,
                     validator: (value) =>
-                        (value == null || !value.contains('@')) ? 'Enter a valid email' : null,
+                        (value == null || !value.contains('@'))
+                            ? 'Enter a valid email'
+                            : null,
                   ),
                   const SizedBox(height: 8),
                   TextFormField(
                     controller: _passwordController,
-                    decoration: const InputDecoration(labelText: 'Temporary password'),
+                    decoration:
+                        const InputDecoration(labelText: 'Temporary password'),
                     obscureText: true,
-                    validator: (value) =>
-                        (value == null || value.length < 8) ? 'At least 8 characters' : null,
+                    validator: (value) => (value == null || value.length < 8)
+                        ? 'At least 8 characters'
+                        : null,
                   ),
                   const SizedBox(height: 8),
                   DropdownButtonFormField<String>(
                     initialValue: _newUserRole,
                     decoration: const InputDecoration(labelText: 'Role'),
                     items: [
-                      for (final role in userRoles) DropdownMenuItem(value: role, child: Text(role)),
+                      for (final role in userRoles)
+                        DropdownMenuItem(value: role, child: Text(role)),
                     ],
                     onChanged: (value) => setState(() => _newUserRole = value!),
                   ),
@@ -660,22 +696,26 @@ class _PeopleTabState extends ConsumerState<_PeopleTab> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Enroll in a course', style: Theme.of(context).textTheme.titleMedium),
+                  Text('Enroll in a course',
+                      style: Theme.of(context).textTheme.titleMedium),
                   const SizedBox(height: 12),
                   FutureBuilder<List<AdminCourse>>(
                     future: _coursesFuture,
                     builder: (context, snapshot) {
                       final courses = snapshot.data ?? const [];
-                      _enrollCourseId ??= courses.isNotEmpty ? courses.first.id : null;
+                      _enrollCourseId ??=
+                          courses.isNotEmpty ? courses.first.id : null;
                       return DropdownButtonFormField<String>(
                         initialValue: _enrollCourseId,
                         decoration: const InputDecoration(labelText: 'Course'),
                         items: [
                           for (final course in courses)
                             DropdownMenuItem(
-                                value: course.id, child: Text('${course.code} — ${course.name}')),
+                                value: course.id,
+                                child: Text('${course.code} — ${course.name}')),
                         ],
-                        onChanged: (value) => setState(() => _enrollCourseId = value),
+                        onChanged: (value) =>
+                            setState(() => _enrollCourseId = value),
                       );
                     },
                   ),
@@ -693,8 +733,9 @@ class _PeopleTabState extends ConsumerState<_PeopleTab> {
                         return _ErrorRetry(
                           message: '${snapshot.error}',
                           onRetry: () => setState(() {
-                            _usersFuture =
-                                ref.read(tenancyAdminRepositoryProvider).listUsers();
+                            _usersFuture = ref
+                                .read(tenancyAdminRepositoryProvider)
+                                .listUsers();
                           }),
                         );
                       }
@@ -716,19 +757,22 @@ class _PeopleTabState extends ConsumerState<_PeopleTab> {
                               child: Text('${user.fullName} — ${user.email}'),
                             ),
                         ],
-                        onChanged: (value) => setState(() => _enrollUserId = value),
+                        onChanged: (value) =>
+                            setState(() => _enrollUserId = value),
                       );
                     },
                   ),
                   const SizedBox(height: 8),
                   DropdownButtonFormField<String>(
                     initialValue: _enrollmentRole,
-                    decoration: const InputDecoration(labelText: 'Enrollment role'),
+                    decoration:
+                        const InputDecoration(labelText: 'Enrollment role'),
                     items: [
                       for (final role in courseEnrollmentRoles)
                         DropdownMenuItem(value: role, child: Text(role)),
                     ],
-                    onChanged: (value) => setState(() => _enrollmentRole = value!),
+                    onChanged: (value) =>
+                        setState(() => _enrollmentRole = value!),
                   ),
                   const SizedBox(height: 12),
                   Align(
@@ -834,7 +878,8 @@ class _AuditLogTabState extends ConsumerState<_AuditLogTab> {
                     : _loading
                         ? const CircularProgressIndicator()
                         : OutlinedButton(
-                            onPressed: _loadMore, child: const Text('Load more')),
+                            onPressed: _loadMore,
+                            child: const Text('Load more')),
               ),
             );
           }

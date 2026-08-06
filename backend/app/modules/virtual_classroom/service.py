@@ -8,7 +8,7 @@ ending a session closes any open attendance windows. The WebRTC media plane
 
 import uuid
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from fastapi import HTTPException, status
 from livekit import api as livekit_api
@@ -45,12 +45,12 @@ class MediaJoinInfo:
 
 
 def _utcnow() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 def _aware(value: datetime | None) -> datetime | None:
     if value is not None and value.tzinfo is None:
-        return value.replace(tzinfo=timezone.utc)
+        return value.replace(tzinfo=UTC)
     return value
 
 
@@ -227,7 +227,8 @@ class VirtualClassroomService:
                     ],
                 )
             )
-        except Exception as error:  # LiveKit server unreachable/rejected the request
+        # External LiveKit API call: unreachable/rejected all map to the same 502.
+        except Exception as error:  # noqa: BLE001
             raise HTTPException(
                 status_code=502, detail=f"Failed to start recording: {error}"
             ) from None
@@ -257,12 +258,15 @@ class VirtualClassroomService:
         client = livekit_api.LiveKitAPI(
             settings.livekit_url, settings.livekit_api_key, settings.livekit_api_secret
         )
+        # External LiveKit API call; any failure maps to the same 502.
         try:
             info = await client.egress.stop_egress(
                 livekit_api.StopEgressRequest(egress_id=recording.egress_id)
             )
-        except Exception as error:
-            raise HTTPException(status_code=502, detail=f"Failed to stop recording: {error}") from None
+        except Exception as error:  # noqa: BLE001
+            raise HTTPException(
+                status_code=502, detail=f"Failed to stop recording: {error}"
+            ) from None
         finally:
             await client.aclose()
 
@@ -291,7 +295,12 @@ class VirtualClassroomService:
         # read. A failure here just leaves the row PROCESSING for next time.
         pending = [r for r in recordings if r.status == RecordingStatus.PROCESSING]
         settings = get_settings()
-        if pending and settings.livekit_url and settings.livekit_api_key and settings.livekit_api_secret:
+        if (
+            pending
+            and settings.livekit_url
+            and settings.livekit_api_key
+            and settings.livekit_api_secret
+        ):
             client = livekit_api.LiveKitAPI(
                 settings.livekit_url, settings.livekit_api_key, settings.livekit_api_secret
             )
@@ -303,7 +312,7 @@ class VirtualClassroomService:
                     if response.items:
                         self._apply_egress_info(recording, response.items[0])
                 await self._session.commit()
-            except Exception:
+            except Exception:  # noqa: BLE001, S110 — best-effort reconciliation, see comment above
                 pass
             finally:
                 await client.aclose()

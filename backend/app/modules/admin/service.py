@@ -94,7 +94,11 @@ class AdminService:
             action="enrollment.created",
             target_type="course_enrollment",
             target_id=enrollment.id,
-            meta={"course_id": str(course_id), "user_id": str(request.user_id), "role": request.role},
+            meta={
+                "course_id": str(course_id),
+                "user_id": str(request.user_id),
+                "role": request.role,
+            },
         )
         await self._session.commit()
         return enrollment

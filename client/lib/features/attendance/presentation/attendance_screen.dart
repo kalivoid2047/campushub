@@ -126,7 +126,8 @@ class _MyAttendanceDialog extends ConsumerWidget {
               const SizedBox(height: 8),
               LinearProgressIndicator(value: mine.attendanceRate),
               const SizedBox(height: 8),
-              Text('${mine.sessionsAttended} of ${mine.totalSessions} sessions'),
+              Text(
+                  '${mine.sessionsAttended} of ${mine.totalSessions} sessions'),
             ],
           );
         },

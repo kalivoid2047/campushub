@@ -126,12 +126,14 @@ void main() {
         return http.Response(
           jsonEncode({
             'id': 'r-1',
-            'status': request.url.path.endsWith('/stop') ? 'available' : 'processing',
+            'status':
+                request.url.path.endsWith('/stop') ? 'available' : 'processing',
             'duration_seconds': 90,
             'size_bytes': 12345,
             'created_at': '2026-07-16T00:00:00Z',
-            'download_url':
-                request.url.path.endsWith('/stop') ? 'https://s3.example/r-1.mp4' : null,
+            'download_url': request.url.path.endsWith('/stop')
+                ? 'https://s3.example/r-1.mp4'
+                : null,
           }),
           200,
         );

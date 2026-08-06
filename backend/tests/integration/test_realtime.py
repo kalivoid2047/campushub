@@ -90,8 +90,13 @@ async def test_ticket_is_single_use_and_socket_authz(world):
             f"/api/v1/courses/{world['course'].id}/channel", headers=headers
         ).json()["id"]
 
-        # No/garbage ticket → rejected.
-        with pytest.raises(Exception):
+        # No/garbage ticket → rejected. The rejection surfaces as whatever
+        # the underlying test-client websocket transport raises on a
+        # failed handshake (its exact type isn't part of our contract —
+        # only that the connection is refused), hence the broad catch;
+        # kept as nested `with`s (not combined) since pytest.raises must
+        # wrap the connect() call specifically, not the whole block.
+        with pytest.raises(Exception):  # noqa: B017, SIM117
             with tc.websocket_connect(f"/api/v1/ws/channels/{channel_id}?ticket=junk"):
                 pass
 
@@ -100,7 +105,7 @@ async def test_ticket_is_single_use_and_socket_authz(world):
             "/api/v1/ws/ticket",
             headers={"Authorization": f"Bearer {world['outsider_token']}"},
         ).json()["ticket"]
-        with pytest.raises(Exception):
+        with pytest.raises(Exception):  # noqa: B017, SIM117
             with tc.websocket_connect(f"/api/v1/ws/channels/{channel_id}?ticket={outsider_ticket}"):
                 pass
 
@@ -109,7 +114,7 @@ async def test_ticket_is_single_use_and_socket_authz(world):
         with tc.websocket_connect(f"/api/v1/ws/channels/{channel_id}?ticket={ticket}"):
             pass
         # ...and is dead on reuse (single-use).
-        with pytest.raises(Exception):
+        with pytest.raises(Exception):  # noqa: B017, SIM117
             with tc.websocket_connect(f"/api/v1/ws/channels/{channel_id}?ticket={ticket}"):
                 pass
 

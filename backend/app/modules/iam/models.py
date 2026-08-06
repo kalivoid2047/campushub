@@ -9,12 +9,12 @@ import uuid
 from datetime import datetime
 
 from sqlalchemy import (
+    JSON,
     BigInteger,
     DateTime,
     Enum,
     ForeignKey,
     Index,
-    JSON,
     String,
     Text,
     UniqueConstraint,

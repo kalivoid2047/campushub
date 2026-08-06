@@ -10,7 +10,7 @@ lecturers upload to courses they teach; any enrolled user reads.
 """
 
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -121,7 +121,7 @@ class ResourcesService:
     async def soft_delete(self, user: CurrentUser, resource_id: uuid.UUID) -> None:
         resource = await self._get_resource_or_404(user, resource_id)
         await self._ensure_course_access(user, resource.module.course_id, require_lecturer=True)
-        resource.deleted_at = datetime.now(timezone.utc)
+        resource.deleted_at = datetime.now(UTC)
         # Release quota for all versions of the deleted resource.
         quota = await self._admin_repo.get_or_create_quota(user.tenant_id)
         quota.used_bytes = max(0, quota.used_bytes - sum(v.size_bytes for v in resource.versions))

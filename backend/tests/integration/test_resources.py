@@ -182,9 +182,7 @@ async def test_upload_list_download_roundtrip(client, session, world):
     assert relist.json()[0]["download_count"] == 1
 
 
-async def test_upload_rejects_content_that_does_not_match_declared_type(
-    client, session, world
-):
+async def test_upload_rejects_content_that_does_not_match_declared_type(client, session, world):
     built = await _build_course(client, session, world)
     resp = await client.post(
         f"/api/v1/modules/{built['module_id']}/resources",

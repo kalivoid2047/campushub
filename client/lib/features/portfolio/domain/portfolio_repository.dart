@@ -44,6 +44,7 @@ class PortfolioCourseEntry {
   final String courseCode;
   final String term;
   final String departmentName;
+
   /// Null until at least one assignment in the course has been graded.
   final double? averageScorePercent;
   final List<PortfolioAssignmentEntry> assignments;

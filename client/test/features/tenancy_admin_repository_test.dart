@@ -13,7 +13,8 @@ void main() {
       httpClient: MockClient((request) async {
         expect(request.method, 'POST');
         expect(request.url.path, '/api/v1/admin/departments');
-        expect(jsonDecode(request.body), {'name': 'Computer Science', 'code': 'CS'});
+        expect(jsonDecode(request.body),
+            {'name': 'Computer Science', 'code': 'CS'});
         return http.Response(
           jsonEncode({
             'id': 'd-1',
@@ -27,7 +28,8 @@ void main() {
     );
     final repository = TenancyAdminRepositoryImpl(api);
 
-    final department = await repository.createDepartment(name: 'Computer Science', code: 'CS');
+    final department =
+        await repository.createDepartment(name: 'Computer Science', code: 'CS');
     expect(department.id, 'd-1');
     expect(department.code, 'CS');
   });
@@ -68,7 +70,8 @@ void main() {
     expect(course.departmentId, 'd-1');
   });
 
-  test('enrollUser posts user_id/role to the course enrollments endpoint', () async {
+  test('enrollUser posts user_id/role to the course enrollments endpoint',
+      () async {
     final api = ApiClient(
       'http://api.test',
       httpClient: MockClient((request) async {
@@ -88,7 +91,8 @@ void main() {
     );
     final repository = TenancyAdminRepositoryImpl(api);
 
-    await repository.enrollUser(courseId: 'c-1', userId: 'u-1', role: 'student');
+    await repository.enrollUser(
+        courseId: 'c-1', userId: 'u-1', role: 'student');
   });
 
   test('storageUsage parses the quota response', () async {
@@ -97,7 +101,8 @@ void main() {
       httpClient: MockClient((request) async {
         expect(request.url.path, '/api/v1/admin/storage/usage');
         return http.Response(
-          jsonEncode({'used_bytes': 512, 'quota_bytes': 1024, 'percent_used': 50.0}),
+          jsonEncode(
+              {'used_bytes': 512, 'quota_bytes': 1024, 'percent_used': 50.0}),
           200,
         );
       }),

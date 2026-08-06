@@ -7,13 +7,15 @@
 library;
 
 class AdminDepartment {
-  const AdminDepartment({required this.id, required this.name, required this.code});
+  const AdminDepartment(
+      {required this.id, required this.name, required this.code});
 
   final String id;
   final String name;
   final String code;
 
-  factory AdminDepartment.fromJson(Map<String, dynamic> json) => AdminDepartment(
+  factory AdminDepartment.fromJson(Map<String, dynamic> json) =>
+      AdminDepartment(
         id: json['id'] as String,
         name: json['name'] as String,
         code: json['code'] as String,
@@ -96,7 +98,8 @@ class EngagementCounts {
   final int messages;
   final int submissions;
 
-  factory EngagementCounts.fromJson(Map<String, dynamic> json) => EngagementCounts(
+  factory EngagementCounts.fromJson(Map<String, dynamic> json) =>
+      EngagementCounts(
         users: json['users'] as int,
         resources: json['resources'] as int,
         messages: json['messages'] as int,
@@ -121,7 +124,8 @@ class AdminAuditLogEntry {
   final String? targetId;
   final DateTime createdAt;
 
-  factory AdminAuditLogEntry.fromJson(Map<String, dynamic> json) => AdminAuditLogEntry(
+  factory AdminAuditLogEntry.fromJson(Map<String, dynamic> json) =>
+      AdminAuditLogEntry(
         id: json['id'] as String,
         actorId: json['actor_id'] as String?,
         action: json['action'] as String,
@@ -137,12 +141,18 @@ const List<String> courseEnrollmentRoles = ['student', 'lecturer', 'ta'];
 
 /// Account roles assignable via [TenancyAdminRepository.createUser]
 /// (docs/06 section 6; super_admin is provisioned only via tenant creation).
-const List<String> userRoles = ['student', 'lecturer', 'dept_admin', 'institution_admin'];
+const List<String> userRoles = [
+  'student',
+  'lecturer',
+  'dept_admin',
+  'institution_admin'
+];
 
 abstract class TenancyAdminRepository {
   Future<List<AdminDepartment>> listDepartments();
 
-  Future<AdminDepartment> createDepartment({required String name, required String code});
+  Future<AdminDepartment> createDepartment(
+      {required String name, required String code});
 
   Future<List<AdminCourse>> listCourses();
 

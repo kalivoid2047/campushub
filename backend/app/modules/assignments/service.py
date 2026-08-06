@@ -11,7 +11,7 @@ Business rules implemented here:
 """
 
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -33,13 +33,13 @@ _ADMIN_ROLES = {"dept_admin", "institution_admin", "super_admin"}
 
 
 def _utcnow() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 def _aware(value: datetime | None) -> datetime | None:
     """SQLite drops tzinfo; normalize to UTC for comparisons."""
     if value is not None and value.tzinfo is None:
-        return value.replace(tzinfo=timezone.utc)
+        return value.replace(tzinfo=UTC)
     return value
 
 
@@ -121,12 +121,11 @@ class AssignmentsService:
         if existing is not None and existing.status == SubmissionStatus.GRADED:
             raise HTTPException(status_code=422, detail="Submission already graded")
 
-        if base_version is not None and existing is not None:
-            if base_version != existing.version:
-                raise HTTPException(
-                    status_code=status.HTTP_409_CONFLICT,
-                    detail="Submission was modified elsewhere",
-                )
+        if base_version is not None and existing is not None and base_version != existing.version:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Submission was modified elsewhere",
+            )
 
         now = _utcnow()
         new_status = SubmissionStatus.DRAFT

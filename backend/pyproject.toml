@@ -38,6 +38,30 @@ testpaths = ["tests"]
 line-length = 100
 target-version = "py312"
 
+[tool.ruff.lint.flake8-bugbear]
+# FastAPI's dependency-injection API is *designed* around calling Depends()
+# (and friends) as an argument default (https://fastapi.tiangolo.com/tutorial/dependencies/) —
+# each call returns a lightweight sentinel, not a mutable value, so B008's
+# general "function call in default argument" warning is a false positive
+# here. Without this, ~125 idiomatic route/dependency signatures across the
+# whole backend flag as errors.
+extend-immutable-calls = [
+    "fastapi.Depends",
+    "fastapi.Query",
+    "fastapi.Path",
+    "fastapi.Body",
+    "fastapi.Header",
+    "fastapi.Cookie",
+    "fastapi.Security",
+    "fastapi.File",
+    "fastapi.Form",
+    # This app's own dependency factory (app/core/security.py) — same
+    # pattern as Depends() above: it returns a dependency callable, not a
+    # mutable value, so calling it in a default argument is the intended
+    # usage (e.g. `Depends(require_role("super_admin"))`).
+    "app.core.security.require_role",
+]
+
 [tool.black]
 line-length = 100
 target-version = ["py312"]

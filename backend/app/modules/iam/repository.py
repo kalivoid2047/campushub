@@ -6,7 +6,7 @@ docs/17-coding-standards.md §2). User lookups are always tenant-scoped
 """
 
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -120,7 +120,7 @@ class IamRepository:
     async def revoke_refresh_token(
         self, token: RefreshToken, replaced_by_id: uuid.UUID | None = None
     ) -> None:
-        token.revoked_at = datetime.now(timezone.utc)
+        token.revoked_at = datetime.now(UTC)
         token.replaced_by_id = replaced_by_id
         await self._session.flush()
 
@@ -130,7 +130,7 @@ class IamRepository:
                 RefreshToken.user_id == user_id, RefreshToken.revoked_at.is_(None)
             )
         )
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         for token in result.scalars():
             token.revoked_at = now
         await self._session.flush()

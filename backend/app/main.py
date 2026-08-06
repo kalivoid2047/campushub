@@ -5,22 +5,21 @@ from sqlalchemy import text
 
 from app.core.config import get_settings
 from app.core.db import engine
-from app.modules.iam.router import admin_router as iam_admin_router
-from app.modules.iam.router import router as iam_router
-from app.modules.resources.router import router as resources_router
-from app.modules.communication.router import router as communication_router
-from app.modules.communication.ws_router import ws_router as communication_ws_router
-from app.modules.assignments.router import router as assignments_router
-from app.modules.virtual_classroom.router import router as virtual_classroom_router
-from app.modules.attendance.router import router as attendance_router
-from app.modules.search.router import router as search_router
-from app.modules.portfolio.router import router as portfolio_router
 from app.modules.admin.router import member_router as admin_member_router
 from app.modules.admin.router import router as admin_router
-from app.modules.sync.router import router as sync_router
-
 from app.modules.assignments import sync_handler as assignments_sync_handler
+from app.modules.assignments.router import router as assignments_router
+from app.modules.attendance.router import router as attendance_router
 from app.modules.communication import sync_handler as communication_sync_handler
+from app.modules.communication.router import router as communication_router
+from app.modules.communication.ws_router import ws_router as communication_ws_router
+from app.modules.iam.router import admin_router as iam_admin_router
+from app.modules.iam.router import router as iam_router
+from app.modules.portfolio.router import router as portfolio_router
+from app.modules.resources.router import router as resources_router
+from app.modules.search.router import router as search_router
+from app.modules.sync.router import router as sync_router
+from app.modules.virtual_classroom.router import router as virtual_classroom_router
 
 settings = get_settings()
 
@@ -70,10 +69,12 @@ async def readyz() -> JSONResponse:
     """Reports ready only once the database and Redis are both reachable —
     the two stateful dependencies every request path relies on (docs/13
     section 1)."""
+    # A readiness probe must report "not ready" for any failure mode, not
+    # just an anticipated subset, hence the broad catches below.
     try:
         async with engine.connect() as conn:
             await conn.execute(text("SELECT 1"))
-    except Exception:
+    except Exception:  # noqa: BLE001
         return JSONResponse(
             status_code=503, content={"status": "not_ready", "detail": "database unavailable"}
         )
@@ -86,7 +87,7 @@ async def readyz() -> JSONResponse:
             await client.ping()
         finally:
             await client.aclose()
-    except Exception:
+    except Exception:  # noqa: BLE001
         return JSONResponse(
             status_code=503, content={"status": "not_ready", "detail": "redis unavailable"}
         )

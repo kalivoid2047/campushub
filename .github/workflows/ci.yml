@@ -36,6 +36,13 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
+          # Pinned to the exact version verified locally (`flutter analyze`
+          # clean, all tests passing) — unpinned `channel: stable` tracks
+          # whatever is newest at run time, which silently drifted ahead of
+          # the local toolchain and started failing analyze on lint rules
+          # that didn't exist when this was last verified. Bump deliberately,
+          # re-verifying locally each time, not by leaving this unpinned.
+          flutter-version: "3.44.1"
       - run: flutter pub get
         working-directory: client
       - run: dart format --output=none --set-exit-if-changed .

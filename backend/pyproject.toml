@@ -26,8 +26,13 @@ dev = [
     "pytest-asyncio>=0.23",
     "aiosqlite>=0.20",
     "httpx>=0.27",
-    "ruff>=0.5",
-    "black>=24.0",
+    # Exact-pinned, not >=: both tools add newly-enabled lint/format rules
+    # even across minor versions, and an unpinned CI install silently
+    # drifted ahead of what was last verified locally, breaking the gate on
+    # code nobody actually changed. Dependabot proposes bumps as reviewable
+    # PRs (own CI run first) rather than this floating unpinned.
+    "ruff==0.16.1",
+    "black==26.5.1",
 ]
 
 [tool.pytest.ini_options]

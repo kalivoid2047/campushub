@@ -12,7 +12,7 @@ dependencies:
   # Raw-SQL local store (no codegen); ffi variant works on desktop + tests,
   # sqflite provides the mobile implementation.
   sqflite: ^2.3.0
-  sqflite_common_ffi: ^2.3.0
+  sqflite_common_ffi: ^2.4.3
   # Web-compatible sqflite factory (IndexedDB/WASM-backed) — the ffi
   # factory above requires dart:ffi, unavailable in a browser.
   sqflite_common_ffi_web: ^1.1.0

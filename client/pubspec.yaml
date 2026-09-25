@@ -15,7 +15,7 @@ dependencies:
   sqflite_common_ffi: ^2.3.0
   # Web-compatible sqflite factory (IndexedDB/WASM-backed) — the ffi
   # factory above requires dart:ffi, unavailable in a browser.
-  sqflite_common_ffi_web: ^1.1.0
+  sqflite_common_ffi_web: ^1.2.0
   flutter_secure_storage: ^9.2.0
   http: ^1.2.0
   web_socket_channel: ^3.0.0

@@ -11,7 +11,7 @@ dependencies:
     sdk: flutter
   # Raw-SQL local store (no codegen); ffi variant works on desktop + tests,
   # sqflite provides the mobile implementation.
-  sqflite: ^2.3.0
+  sqflite: ^2.4.4+1
   sqflite_common_ffi: ^2.3.0
   # Web-compatible sqflite factory (IndexedDB/WASM-backed) — the ffi
   # factory above requires dart:ffi, unavailable in a browser.

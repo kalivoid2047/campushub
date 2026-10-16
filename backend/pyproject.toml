@@ -31,7 +31,7 @@ dev = [
     # drifted ahead of what was last verified locally, breaking the gate on
     # code nobody actually changed. Dependabot proposes bumps as reviewable
     # PRs (own CI run first) rather than this floating unpinned.
-    "ruff==0.16.1",
+    "ruff==0.17.0",
     "black==26.5.1",
 ]
 
